@@ -1,0 +1,116 @@
+{% load static %}
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>City Guide Map</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+    <link rel="stylesheet" href="{% static 'maps/styles.css' %}">
+  </head>
+  <body>
+    <main
+      class="map-shell"
+      data-places-url="/api/v1/places/"
+      data-categories-url="/api/v1/categories/"
+      data-tile-url="{{ map_tile_url }}"
+      data-tile-attribution="{{ map_tile_attribution }}"
+    >
+      <section class="sidebar" aria-label="Search controls and results">
+        <div class="sidebar-content">
+          <header class="app-header">
+            <div class="brand-mark" aria-hidden="true">CG</div>
+            <div>
+              <p class="eyebrow">City Guide</p>
+              <h1>Nearby Places</h1>
+            </div>
+          </header>
+
+          <form class="search-form" id="search-form">
+            <div class="field-grid">
+              <label class="field">
+                <span>Latitude</span>
+                <input id="lat" name="lat" type="number" step="any" required>
+              </label>
+              <label class="field">
+                <span>Longitude</span>
+                <input id="lng" name="lng" type="number" step="any" required>
+              </label>
+            </div>
+
+            <label class="field">
+              <span>Category</span>
+              <select id="category" name="category" required></select>
+            </label>
+
+            <label class="field">
+              <span>Radius</span>
+              <input
+                id="search-radius"
+                name="search_radius"
+                type="range"
+                min="100"
+                max="3000"
+                step="100"
+                value="500"
+              >
+            </label>
+
+            <div class="radius-row">
+              <output id="radius-output" for="search-radius">500 m</output>
+            </div>
+
+            <div class="actions">
+              <button class="primary-button icon-button" type="submit" aria-label="Search" title="Search">
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="m21 21-4.3-4.3"></path>
+                  <circle cx="11" cy="11" r="8"></circle>
+                </svg>
+              </button>
+              <button
+                class="secondary-button icon-button"
+                id="locate-button"
+                type="button"
+                aria-label="Use current location"
+                title="Use current location"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M12 2v3"></path>
+                  <path d="M12 19v3"></path>
+                  <path d="M2 12h3"></path>
+                  <path d="M19 12h3"></path>
+                  <circle cx="12" cy="12" r="7"></circle>
+                  <circle cx="12" cy="12" r="2"></circle>
+                </svg>
+              </button>
+              <button
+                class="secondary-button icon-button"
+                id="reset-button"
+                type="button"
+                aria-label="Reset search"
+                title="Reset search"
+              >
+                <svg aria-hidden="true" viewBox="0 0 24 24">
+                  <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+                  <path d="M3 3v6h6"></path>
+                </svg>
+              </button>
+            </div>
+          </form>
+
+          <div class="results-header">
+            <h2>Results</h2>
+            <div class="status" id="status" role="status"></div>
+          </div>
+          <ol class="results" id="results" aria-label="Places"></ol>
+        </div>
+      </section>
+
+      <section class="map-panel" aria-label="Map">
+        <div id="map"></div>
+      </section>
+    </main>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="{% static 'maps/app.js' %}" defer></script>
+  </body>
+</html>

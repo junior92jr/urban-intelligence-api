@@ -18,6 +18,16 @@ env = environ.Env(
         "https://overpass-api.de/api/interpreter",
     ),
     OPEN_STREET_MAP_USER_AGENT=(str, "city-guide-api-demo"),
+    OPEN_STREET_MAP_TIMEOUT_IN_SECS=(float, 20.0),
+    OPEN_STREET_MAP_MAX_RETRIES=(int, 2),
+    MAP_TILE_URL=(
+        str,
+        "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+    ),
+    MAP_TILE_ATTRIBUTION=(
+        str,
+        "OpenStreetMap contributors.",
+    ),
     CACHE_TIMEOUT_IN_SECS=(int, 86400),
 )
 
@@ -50,6 +60,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "maps",
     "places",
 ]
 
@@ -162,6 +173,14 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 OPEN_STREET_MAP_OVERPASS_URL = env("OPEN_STREET_MAP_OVERPASS_URL")
 
 OPEN_STREET_MAP_USER_AGENT = env("OPEN_STREET_MAP_USER_AGENT")
+
+OPEN_STREET_MAP_TIMEOUT_IN_SECS = env("OPEN_STREET_MAP_TIMEOUT_IN_SECS")
+
+OPEN_STREET_MAP_MAX_RETRIES = env("OPEN_STREET_MAP_MAX_RETRIES")
+
+MAP_TILE_URL = env("MAP_TILE_URL")
+
+MAP_TILE_ATTRIBUTION = env("MAP_TILE_ATTRIBUTION")
 
 CACHE_TIMEOUT_IN_SECS = env("CACHE_TIMEOUT_IN_SECS")
 
