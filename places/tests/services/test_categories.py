@@ -5,6 +5,8 @@ from places.services.categories import (
     get_categories,
     get_category_by_slug,
     get_category_from_tags,
+    get_default_osm_category_tags,
+    get_osm_category_tags_for_slug,
 )
 
 pytestmark = pytest.mark.django_db
@@ -47,3 +49,19 @@ def test_get_active_osm_category_tags_returns_known_osm_pairs():
 
     assert ("amenity", "parking") in tags
     assert ("historic", "wayside_shrine") in tags
+
+
+def test_get_default_osm_category_tags_returns_default_osm_pairs():
+    tags = get_default_osm_category_tags()
+
+    assert ("amenity", "restaurant") in tags
+    assert ("amenity", "cafe") in tags
+    assert ("historic", "wayside_shrine") not in tags
+
+
+def test_get_osm_category_tags_for_slug_returns_known_osm_pair():
+    assert get_osm_category_tags_for_slug("bar") == [("amenity", "bar")]
+
+
+def test_get_osm_category_tags_for_slug_returns_empty_list_for_unknown_slug():
+    assert get_osm_category_tags_for_slug("unknown") == []

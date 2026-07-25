@@ -24,6 +24,7 @@ def test_build_request_payload_uses_radius_parameter():
 
     assert "around:1000,50.1101038,8.6771586" in payload["data"]
     assert '["amenity"="parking"]' in payload["data"]
+    assert '["historic"="wayside_shrine"]' not in payload["data"]
 
 
 def test_build_request_payload_uses_request_radius():
@@ -36,6 +37,21 @@ def test_build_request_payload_uses_request_radius():
     )
 
     assert "around:250,50.1101038,8.6771586" in payload["data"]
+
+
+def test_build_request_payload_uses_only_requested_category():
+    payload = open_street_map.build_request_payload(
+        {
+            "lat": 50.1101038,
+            "lng": 8.6771586,
+            "search_radius": 250,
+            "category": "bar",
+        }
+    )
+
+    assert '["amenity"="bar"]' in payload["data"]
+    assert '["amenity"="parking"]' not in payload["data"]
+    assert '["tourism"="museum"]' not in payload["data"]
 
 
 def test_build_request_payload_raises_when_no_categories_are_active():
@@ -70,6 +86,63 @@ def test_request_places_calls_overpass(settings):
     )
 
     mocker(open_street_map.httpx).mock("get").called_once().return_value(response)
+
+    assert (
+        open_street_map.request_places(
+            {
+                "lat": 50.1101038,
+                "lng": 8.6771586,
+                "search_radius": 1000,
+            }
+        )
+        == response
+    )
+
+
+def test_request_places_retries_request_errors(settings):
+    settings.OPEN_STREET_MAP_OVERPASS_URL = "https://overpass.test/api"
+    settings.OPEN_STREET_MAP_MAX_RETRIES = 1
+    request = httpx.Request("GET", "https://overpass.test/api")
+    response = httpx.Response(
+        httpx.codes.OK,
+        json={"elements": []},
+        request=request,
+    )
+    mocker(open_street_map).mock("wait_before_retry").called_once_with(1)
+    mocker(open_street_map.httpx).mock("get").side_effect(
+        [httpx.ReadTimeout("read timed out", request=request), response]
+    )
+
+    assert (
+        open_street_map.request_places(
+            {
+                "lat": 50.1101038,
+                "lng": 8.6771586,
+                "search_radius": 1000,
+            }
+        )
+        == response
+    )
+
+
+def test_request_places_retries_retryable_status_codes(settings):
+    settings.OPEN_STREET_MAP_OVERPASS_URL = "https://overpass.test/api"
+    settings.OPEN_STREET_MAP_MAX_RETRIES = 1
+    request = httpx.Request("GET", "https://overpass.test/api")
+    unavailable_response = httpx.Response(
+        httpx.codes.GATEWAY_TIMEOUT,
+        text="server busy",
+        request=request,
+    )
+    response = httpx.Response(
+        httpx.codes.OK,
+        json={"elements": []},
+        request=request,
+    )
+    mocker(open_street_map).mock("wait_before_retry").called_once_with(1)
+    mocker(open_street_map.httpx).mock("get").side_effect(
+        [unavailable_response, response]
+    )
 
     assert (
         open_street_map.request_places(

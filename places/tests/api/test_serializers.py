@@ -17,7 +17,7 @@ def test_recommendations_query_serializer_accepts_required_coordinates():
     assert serializer.to_query_params() == {
         "lat": 50.1101038,
         "lng": 8.6771586,
-        "search_radius": 1000,
+        "search_radius": 500,
     }
 
 
@@ -105,3 +105,16 @@ def test_recommendations_query_serializer_rejects_unknown_category():
 
     assert not serializer.is_valid()
     assert "category" in serializer.errors
+
+
+def test_recommendations_query_serializer_rejects_radius_above_city_range():
+    serializer = RecommendationsQuerySerializer(
+        data={
+            "lat": "50.1101038",
+            "lng": "8.6771586",
+            "search_radius": "3001",
+        }
+    )
+
+    assert not serializer.is_valid()
+    assert "search_radius" in serializer.errors

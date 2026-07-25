@@ -6,8 +6,8 @@ from .models import PlaceCategory
 from .services.categories import get_category_by_slug
 from .services.open_street_map import PlaceQueryParams
 
-DEFAULT_SEARCH_RADIUS = 1000
-MAX_SEARCH_RADIUS = 50000
+DEFAULT_SEARCH_RADIUS = 500
+MAX_SEARCH_RADIUS = 3000
 
 
 class CategorySerializer(serializers.ModelSerializer[PlaceCategory]):

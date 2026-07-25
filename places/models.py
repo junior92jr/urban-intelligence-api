@@ -9,6 +9,7 @@ class PlaceCategory(models.Model):
     osm_key = models.CharField(max_length=50)
     osm_value = models.CharField(max_length=100)
     is_active = models.BooleanField(default=True)
+    include_in_default_search = models.BooleanField(default=False)
     sort_order = models.PositiveIntegerField(default=0)
 
     class Meta:

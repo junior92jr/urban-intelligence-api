@@ -18,7 +18,7 @@ def test_places_returns_mapped_open_street_map_response(api_client):
     query_params = {
         "lat": 50.1101038,
         "lng": 8.6771586,
-        "search_radius": 1000,
+        "search_radius": 500,
     }
     service_response = OpenStreetMapApiResponse.from_api_response(
         {
@@ -114,7 +114,7 @@ def test_places_passes_optional_category_to_search_service(api_client):
     query_params = {
         "lat": 50.1101038,
         "lng": 8.6771586,
-        "search_radius": 1000,
+        "search_radius": 500,
         "category": "parking",
     }
     service_response = OpenStreetMapApiResponse.from_api_response(
