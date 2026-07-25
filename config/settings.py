@@ -78,9 +78,9 @@ MIDDLEWARE = [
 
 
 # URLs and application entry points
-ROOT_URLCONF = "city_guide.urls"
+ROOT_URLCONF = "config.urls"
 
-WSGI_APPLICATION = "city_guide.wsgi.application"
+WSGI_APPLICATION = "config.wsgi.application"
 
 
 # Templates
