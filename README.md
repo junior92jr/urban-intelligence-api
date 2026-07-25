@@ -40,7 +40,9 @@ Get places near a location:
 (GET) /api/v1/places/?lat=50.1101038&lng=8.6771587
 ```
 
-The default search radius is `1000` meters.
+When no category is provided, the API searches only categories marked for default search.
+
+The default search radius is `500` meters. Search radius values can be between `1` and `3000` meters.
 
 Get places within a custom radius in meters:
 ```
@@ -55,6 +57,11 @@ Get known categories available for filtering:
 Filter places by a known category slug:
 ```
 (GET) /api/v1/places/?lat=50.1101038&lng=8.6771587&category=parking
+```
+
+Use the map interface:
+```
+(GET) /maps/
 ```
 
 Example category response:
@@ -124,6 +131,10 @@ DATABASE_URL=sqlite:///db.sqlite3
 CACHE_LOCATION=.cache
 OPEN_STREET_MAP_OVERPASS_URL=https://overpass-api.de/api/interpreter
 OPEN_STREET_MAP_USER_AGENT=city-guide-api-demo
+OPEN_STREET_MAP_TIMEOUT_IN_SECS=20
+OPEN_STREET_MAP_MAX_RETRIES=2
+MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
 CACHE_TIMEOUT_IN_SECS=86400
 ```
 
@@ -135,6 +146,19 @@ Supported `DATABASE_URL` examples:
 DATABASE_URL=sqlite:///db.sqlite3
 DATABASE_URL=postgres://user:password@localhost:5432/city_guide
 ```
+
+### Local dev: map tiles
+
+The map UI uses Leaflet with Django templates and static files. No Node or frontend build step is required.
+
+For local development, the default tile URL uses OpenStreetMap public tiles:
+
+```env
+MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
+MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
+```
+
+For production traffic, configure a proper tile provider in `MAP_TILE_URL` and update `MAP_TILE_ATTRIBUTION`.
 
 # Running the project
 ## Run the project
