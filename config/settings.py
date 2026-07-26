@@ -74,6 +74,7 @@ INSTALLED_APPS = [
     "accounts",
     "web",
     "places",
+    "user_places",
 ]
 
 

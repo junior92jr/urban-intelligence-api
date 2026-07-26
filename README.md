@@ -112,6 +112,7 @@ Rendered web pages are handled by the `web` app:
 
 ```
 (GET) /maps/
+(GET) /favorites/
 (GET) /login/
 (GET) /register/
 (GET) /registration-sent/
@@ -149,6 +150,21 @@ Get known categories available for filtering:
 Filter places by a known category slug:
 ```
 (GET) /api/v1/places/?lat=50.1101038&lng=8.6771587&category=parking
+```
+
+Save an authenticated user's favorite place:
+```
+(POST) /api/v1/user-places/favorites/
+```
+
+List saved favorite places:
+```
+(GET) /api/v1/user-places/favorites/
+```
+
+Remove a saved favorite place:
+```
+(DELETE) /api/v1/user-places/favorites/<osm_uid>/
 ```
 
 Use the map interface:

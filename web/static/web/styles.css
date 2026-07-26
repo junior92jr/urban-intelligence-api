@@ -55,8 +55,108 @@ button {
 
 .map-shell {
   display: grid;
-  grid-template-columns: minmax(340px, 440px) minmax(0, 1fr);
+  grid-template-columns: 164px minmax(340px, 440px) minmax(0, 1fr);
   min-height: 100vh;
+}
+
+.map-shell[data-nav-collapsed="true"] {
+  grid-template-columns: 60px minmax(340px, 440px) minmax(0, 1fr);
+}
+
+.app-rail {
+  position: relative;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-height: 100vh;
+  padding: 18px 10px;
+  border-right: 1px solid var(--line);
+  background: var(--ink);
+  overflow: hidden;
+  transition:
+    width 160ms ease,
+    padding 160ms ease,
+    border-color 160ms ease;
+}
+
+.map-shell[data-nav-collapsed="true"] .app-rail {
+  padding-right: 6px;
+  padding-left: 6px;
+}
+
+.rail-toggle,
+.rail-link {
+  display: flex;
+  width: 100%;
+  min-height: 48px;
+  align-items: center;
+  gap: 12px;
+  padding: 0 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: rgb(255 255 255 / 74%);
+  cursor: pointer;
+  text-decoration: none;
+}
+
+.rail-toggle {
+  justify-content: center;
+}
+
+.map-shell[data-nav-collapsed="true"] .rail-link {
+  justify-content: center;
+  padding: 0;
+}
+
+.map-shell[data-nav-collapsed="true"] .rail-link span {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip: rect(0 0 0 0);
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+.rail-toggle:hover,
+.rail-link:hover,
+.rail-link--active {
+  border-color: rgb(255 255 255 / 14%);
+  background: rgb(255 255 255 / 8%);
+  color: #fff;
+}
+
+.rail-link--active {
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.rail-toggle svg,
+.rail-link svg {
+  width: 21px;
+  height: 21px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.1;
+}
+
+.rail-toggle-icon--expand {
+  display: none;
+}
+
+.map-shell[data-nav-collapsed="true"] .rail-toggle-icon--collapse {
+  display: none;
+}
+
+.map-shell[data-nav-collapsed="true"] .rail-toggle-icon--expand {
+  display: block;
+}
+
+.rail-link span {
+  font-size: 0.88rem;
+  font-weight: 850;
 }
 
 .sidebar {
@@ -469,7 +569,7 @@ h2 {
   transform: translateY(-1px);
 }
 
-.result-item button {
+.result-place-button {
   padding: 0;
   border: 0;
   background: transparent;
@@ -480,13 +580,54 @@ h2 {
   text-align: left;
 }
 
-.result-item button:hover {
+.result-place-button:hover {
   color: var(--primary);
 }
 
 .result-meta {
   color: var(--muted);
   font-size: 0.83rem;
+}
+
+.favorite-button {
+  display: grid;
+  justify-self: start;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  place-items: center;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  background: var(--surface-muted);
+  color: var(--primary-dark);
+  cursor: pointer;
+  font-size: 0.82rem;
+  font-weight: 850;
+}
+
+.favorite-button svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+}
+
+.favorite-button[data-active="true"] {
+  border-color: rgb(18 107 90 / 34%);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.favorite-button[data-active="true"] svg {
+  fill: currentcolor;
+}
+
+.favorite-button:disabled {
+  cursor: progress;
+  opacity: 0.7;
 }
 
 .map-panel {
@@ -581,6 +722,40 @@ h2 {
 @media (max-width: 900px) {
   .map-shell {
     grid-template-columns: 1fr;
+  }
+
+  .map-shell[data-nav-collapsed="true"] {
+    grid-template-columns: 1fr;
+  }
+
+  .app-rail {
+    flex-direction: row;
+    min-height: auto;
+    padding: 10px 14px;
+    border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .map-shell[data-nav-collapsed="true"] .app-rail {
+    display: flex;
+    padding: 10px 14px;
+  }
+
+  .rail-toggle,
+  .rail-link {
+    width: 46px;
+    min-height: 42px;
+    justify-content: center;
+    padding: 0;
+  }
+
+  .rail-link span {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    clip: rect(0 0 0 0);
+    overflow: hidden;
+    white-space: nowrap;
   }
 
   .auth-layout {

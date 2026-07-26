@@ -13,6 +13,7 @@ from accounts.models import User
 from accounts.services.registration import register_user
 
 APP_JS_PATH = Path(__file__).resolve().parents[1] / "static/web/app.js"
+STYLES_PATH = Path(__file__).resolve().parents[1] / "static/web/styles.css"
 ACTIVATION_LINK_PATTERN = re.compile(r"http://testserver/activate/\?token=[^\s<]+")
 
 pytestmark = pytest.mark.django_db
@@ -46,13 +47,22 @@ def test_map_page_renders_search_sidebar_for_authenticated_user(
     assert b'id="map"' in response.content
     assert b"data-tile-url=" in response.content
     assert b"data-tile-attribution=" in response.content
+    assert b"data-favorites-url=" in response.content
     assert b'id="search-form"' in response.content
+    assert b"app-rail" in response.content
     assert b"Sign in to search" not in response.content
     assert b"unpkg.com" not in response.content
 
 
 def test_profile_page_requires_authentication(api_client: APIClient) -> None:
     response = api_client.get(reverse("web:profile"))
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"].startswith(str(reverse("web:login")))
+
+
+def test_favorites_page_requires_authentication(api_client: APIClient) -> None:
+    response = api_client.get(reverse("web:favorites"))
 
     assert response.status_code == status.HTTP_302_FOUND
     assert response["Location"].startswith(str(reverse("web:login")))
@@ -224,7 +234,26 @@ def test_profile_page_renders_for_authenticated_user(api_client: APIClient) -> N
     assert b"map-shell" in response.content
     assert b'id="map"' in response.content
     assert b"data-tile-url=" in response.content
+    assert b"app-rail" in response.content
     assert b"auth-layout" not in response.content
+
+
+def test_favorites_page_renders_for_authenticated_user(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="favorites-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+    )
+    api_client.force_login(user)
+
+    response = api_client.get(reverse("web:favorites"))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert b"Favorites" in response.content
+    assert b'id="favorite-results"' in response.content
+    assert b'id="map"' in response.content
+    assert b"data-favorites-url=" in response.content
+    assert b"app-rail" in response.content
 
 
 def test_map_app_reads_tile_url_from_template_dataset() -> None:
@@ -249,3 +278,25 @@ def test_map_app_supports_anonymous_sidebar_without_search_form() -> None:
     assert "const submitButton = form?.querySelector" in app_js
     assert "if (form !== null)" in app_js
     assert "form?.addEventListener" in app_js
+
+
+def test_map_app_supports_favorite_toggles() -> None:
+    app_js = APP_JS_PATH.read_text()
+
+    assert "shell.dataset.favoritesUrl" in app_js
+    assert "toggleFavorite(place" in app_js
+    assert "favoriteOsmUids" in app_js
+    assert "renderFavoritePlaces" in app_js
+    assert "rail-toggle" in app_js
+    assert "cityGuide.navCollapsed" in app_js
+    assert "applyNavigationState" in app_js
+
+
+def test_collapsed_navigation_keeps_toggle_visible() -> None:
+    styles = STYLES_PATH.read_text()
+
+    assert "grid-template-columns: 164px minmax(340px, 440px) minmax(0, 1fr);" in styles
+    assert "grid-template-columns: 60px minmax(340px, 440px) minmax(0, 1fr);" in styles
+    assert '.map-shell[data-nav-collapsed="true"] .rail-link span' in styles
+    assert "rail-toggle-icon--collapse" in styles
+    assert "rail-toggle-icon--expand" in styles

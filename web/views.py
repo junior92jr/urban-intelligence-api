@@ -39,6 +39,7 @@ class MapView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context.update(get_map_tile_context())
+        context["active_nav"] = "map"
 
         return context
 
@@ -160,6 +161,20 @@ class ProfileView(LoginRequiredMixin, TemplateView):
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context.update(get_map_tile_context())
+        context["active_nav"] = "profile"
+
+        return context
+
+
+class FavoritesView(LoginRequiredMixin, TemplateView):
+    template_name = "web/user_places/favorites.html"
+    login_url = reverse_lazy("web:login")
+
+    @override
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update(get_map_tile_context())
+        context["active_nav"] = "favorites"
 
         return context
 

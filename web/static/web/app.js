@@ -10,7 +10,10 @@ const locateButton = document.querySelector("#locate-button");
 const resetButton = document.querySelector("#reset-button");
 const statusElement = document.querySelector("#status");
 const resultsElement = document.querySelector("#results");
+const favoriteResultsElement = document.querySelector("#favorite-results");
+const navToggleButton = document.querySelector(".rail-toggle");
 
+const navCollapsedStorageKey = "cityGuide.navCollapsed";
 const defaultCenter = [50.1109, 8.6821];
 const defaultCategory = "restaurant";
 const defaultRadius = "500";
@@ -21,15 +24,23 @@ const resultMarkers = L.layerGroup().addTo(map);
 let selectedMarker = null;
 let radiusCircle = null;
 let currentSearchController = null;
+let favoriteOsmUids = new Set();
 
 L.tileLayer(shell.dataset.tileUrl, {
   maxZoom: 19,
   attribution: shell.dataset.tileAttribution,
 }).addTo(map);
 
+applyNavigationState(localStorage.getItem(navCollapsedStorageKey) === "true");
+
 if (form !== null) {
   setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
   loadCategories();
+  loadFavorites();
+}
+
+if (favoriteResultsElement !== null) {
+  loadFavoritePlaces();
 }
 
 map.on("click", (event) => {
@@ -92,6 +103,12 @@ resetButton?.addEventListener("click", () => {
   resetSearch();
 });
 
+navToggleButton?.addEventListener("click", () => {
+  const isCollapsed = shell.dataset.navCollapsed === "true";
+  applyNavigationState(!isCollapsed);
+  localStorage.setItem(navCollapsedStorageKey, String(!isCollapsed));
+});
+
 async function loadCategories() {
   try {
     const response = await fetch(shell.dataset.categoriesUrl);
@@ -109,6 +126,37 @@ async function loadCategories() {
     });
   } catch {
     setStatus("Categories are not available right now.");
+  }
+}
+
+async function loadFavorites() {
+  try {
+    const response = await fetch(shell.dataset.favoritesUrl);
+    if (!response.ok) {
+      throw new Error("Favorites request failed.");
+    }
+
+    const favorites = await response.json();
+    favoriteOsmUids = new Set(favorites.map((favorite) => favorite.osm_uid));
+  } catch {
+    favoriteOsmUids = new Set();
+  }
+}
+
+async function loadFavoritePlaces() {
+  setStatus("Loading favorite places...");
+
+  try {
+    const response = await fetch(shell.dataset.favoritesUrl);
+    if (!response.ok) {
+      throw new Error("Favorites request failed.");
+    }
+
+    const favorites = await response.json();
+    favoriteOsmUids = new Set(favorites.map((favorite) => favorite.osm_uid));
+    renderFavoritePlaces(favorites);
+  } catch {
+    setStatus("Favorites are not available right now.");
   }
 }
 
@@ -174,6 +222,7 @@ function renderPlaces(places) {
     item.className = "result-item";
 
     const button = document.createElement("button");
+    button.className = "result-place-button";
     button.type = "button";
     button.textContent = place.name;
     button.addEventListener("click", () => {
@@ -185,12 +234,78 @@ function renderPlaces(places) {
     meta.className = "result-meta";
     meta.textContent = `${place.category_name} · ${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)}`;
 
-    item.append(button, meta);
+    const favoriteButton = document.createElement("button");
+    favoriteButton.className = "favorite-button";
+    favoriteButton.type = "button";
+    updateFavoriteButton(favoriteButton, place);
+    favoriteButton.addEventListener("click", async () => {
+      await toggleFavorite(place, favoriteButton);
+    });
+
+    item.append(button, meta, favoriteButton);
     resultsElement.append(item);
   });
 
   map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
   setStatus(`${places.length} places found.`);
+}
+
+function renderFavoritePlaces(favorites) {
+  favoriteResultsElement.replaceChildren();
+  resultMarkers.clearLayers();
+
+  if (favorites.length === 0) {
+    setStatus("No favorite places saved yet.");
+    return;
+  }
+
+  const bounds = [];
+
+  favorites.forEach((place) => {
+    const marker = L.marker([place.latitude, place.longitude], {
+      icon: placeIcon,
+    })
+      .bindPopup(`<strong>${escapeHtml(place.name)}</strong><br>${escapeHtml(place.category_name)}`)
+      .addTo(resultMarkers);
+
+    bounds.push([place.latitude, place.longitude]);
+
+    const item = document.createElement("li");
+    item.className = "result-item";
+
+    const button = document.createElement("button");
+    button.className = "result-place-button";
+    button.type = "button";
+    button.textContent = place.name;
+    button.addEventListener("click", () => {
+      map.setView([place.latitude, place.longitude], 17);
+      marker.openPopup();
+    });
+
+    const meta = document.createElement("span");
+    meta.className = "result-meta";
+    meta.textContent = `${place.category_name} · ${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)}`;
+
+    const favoriteButton = document.createElement("button");
+    favoriteButton.className = "favorite-button";
+    favoriteButton.type = "button";
+    updateFavoriteButton(favoriteButton, place);
+    favoriteButton.addEventListener("click", async () => {
+      await toggleFavorite(place, favoriteButton);
+      item.remove();
+      marker.remove();
+
+      if (favoriteResultsElement.children.length === 0) {
+        setStatus("No favorite places saved yet.");
+      }
+    });
+
+    item.append(button, meta, favoriteButton);
+    favoriteResultsElement.append(item);
+  });
+
+  map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
+  setStatus(`${favorites.length} favorite places saved.`);
 }
 
 function resetSearch() {
@@ -237,6 +352,89 @@ function setSelectedLocation(lat, lng, moveMap) {
 
 function setStatus(message) {
   statusElement.textContent = message;
+}
+
+function applyNavigationState(isCollapsed) {
+  shell.dataset.navCollapsed = String(isCollapsed);
+  navToggleButton?.setAttribute("aria-expanded", String(!isCollapsed));
+  navToggleButton?.setAttribute(
+    "aria-label",
+    isCollapsed ? "Expand navigation" : "Collapse navigation",
+  );
+  navToggleButton?.setAttribute(
+    "title",
+    isCollapsed ? "Expand navigation" : "Collapse navigation",
+  );
+}
+
+async function toggleFavorite(place, button) {
+  button.disabled = true;
+
+  try {
+    if (favoriteOsmUids.has(place.osm_uid)) {
+      await deleteFavorite(place.osm_uid);
+      favoriteOsmUids.delete(place.osm_uid);
+    } else {
+      await saveFavorite(place);
+      favoriteOsmUids.add(place.osm_uid);
+    }
+
+    updateFavoriteButton(button, place);
+  } catch {
+    setStatus("Favorite could not be updated right now.");
+  } finally {
+    button.disabled = false;
+  }
+}
+
+async function saveFavorite(place) {
+  const response = await fetch(shell.dataset.favoritesUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken"),
+    },
+    body: JSON.stringify(place),
+  });
+
+  if (!response.ok) {
+    throw new Error("Favorite save failed.");
+  }
+}
+
+async function deleteFavorite(osmUid) {
+  const response = await fetch(`${shell.dataset.favoritesUrl}${encodeURIComponent(osmUid)}/`, {
+    method: "DELETE",
+    headers: {
+      "X-CSRFToken": getCookie("csrftoken"),
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error("Favorite delete failed.");
+  }
+}
+
+function updateFavoriteButton(button, place) {
+  const isFavorite = favoriteOsmUids.has(place.osm_uid);
+  button.innerHTML = `
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8Z"></path>
+    </svg>
+  `;
+  button.setAttribute(
+    "aria-label",
+    `${isFavorite ? "Remove" : "Save"} ${place.name} ${isFavorite ? "from" : "to"} favorites`,
+  );
+  button.dataset.active = String(isFavorite);
+}
+
+function getCookie(name) {
+  const cookie = document.cookie
+    .split("; ")
+    .find((item) => item.startsWith(`${name}=`));
+
+  return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
 }
 
 function showRadiusCircle() {
