@@ -71,6 +71,11 @@ Authenticated requests should send the token as:
 Authorization: Bearer fbfd14c374618e78bc9bbe1f6a576489a94f61f7
 ```
 
+Get the authenticated profile:
+```
+(GET) /api/v1/accounts/me/
+```
+
 Logout deletes the current bearer token:
 ```
 (POST) /api/v1/accounts/logout/
@@ -101,12 +106,30 @@ Body Request:
 
 Account activation and password reset tokens are stored hashed, returned once, and consumed on use. This API does not send confirmation or password reset emails.
 
+### How to use the web interface
+
+Rendered web pages are handled by the `web` app:
+
+```
+(GET) /maps/
+(GET) /login/
+(GET) /register/
+(GET) /activate/
+(GET) /forgot-password/
+(GET) /reset-password/
+(GET) /profile/
+```
+
+The map page redirects anonymous users to the login page. Place search starts only after authentication.
+
 ### How to use the location service
 
 Get places near a location:
 ```
 (GET) /api/v1/places/?lat=50.1101038&lng=8.6771587
 ```
+
+The places endpoint requires authentication. Categories remain public so the UI can prepare filters before search.
 
 When no category is provided, the API searches only categories marked for default search.
 
@@ -197,6 +220,7 @@ ALLOWED_HOSTS=localhost,127.0.0.1
 CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
 DATABASE_URL=sqlite:///db.sqlite3
 CACHE_LOCATION=.cache
+STATIC_ROOT=staticfiles
 OPEN_STREET_MAP_OVERPASS_URL=https://overpass-api.de/api/interpreter
 OPEN_STREET_MAP_USER_AGENT=city-guide-api-demo
 OPEN_STREET_MAP_TIMEOUT_IN_SECS=20
@@ -239,6 +263,12 @@ make check
 uv run python manage.py migrate
 
 uv run python manage.py runserver
+```
+
+For deployment-style static collection, run:
+
+```bash
+uv run python manage.py collectstatic --noinput
 ```
 
 ## Run tests

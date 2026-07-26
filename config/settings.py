@@ -12,6 +12,7 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, []),
     CSRF_TRUSTED_ORIGINS=(list, []),
     CACHE_LOCATION=(str, str(BASE_DIR / ".cache")),
+    STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
     OPEN_STREET_MAP_OVERPASS_URL=(
         str,
@@ -148,6 +149,10 @@ USE_TZ = True
 # Static files
 STATIC_URL = "static/"
 
+STATIC_ROOT = Path(str(env("STATIC_ROOT")))
+if not STATIC_ROOT.is_absolute():
+    STATIC_ROOT = BASE_DIR / STATIC_ROOT
+
 STORAGES = {
     "default": {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
@@ -198,5 +203,6 @@ CACHE_TIMEOUT_IN_SECS = env("CACHE_TIMEOUT_IN_SECS")
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
         "accounts.authentication.BearerTokenAuthentication",
+        "rest_framework.authentication.SessionAuthentication",
     ],
 }
