@@ -3,7 +3,7 @@ from typing import Any, cast, override
 from django.db.models import QuerySet
 from rest_framework import mixins, viewsets
 from rest_framework.decorators import action
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.request import Request
 from rest_framework.response import Response
 
@@ -18,7 +18,7 @@ class RecommendationViewSet(viewsets.GenericViewSet[Any]):
     """
 
     serializer_class = RecommendationsQuerySerializer
-    permission_classes = (AllowAny,)
+    permission_classes = (IsAuthenticated,)
     queryset = None
 
     @action(methods=["get"], url_path=r"places", detail=False)
