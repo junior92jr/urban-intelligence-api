@@ -45,7 +45,6 @@ def send_password_reset_email(
         to_email=email,
         context={
             "reset_url": reset_url,
-            "reset_token": reset_token,
         },
     )
 

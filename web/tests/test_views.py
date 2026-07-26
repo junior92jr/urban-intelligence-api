@@ -200,6 +200,7 @@ def test_forgot_password_page_sends_reset_email_for_active_user(
     assert outbox[0].subject == "Reset your City Guide password"
     assert outbox[0].to == ["forgot-web@example.com"]
     assert "/reset-password/?token=" in outbox[0].body
+    assert "reset token" not in outbox[0].body.lower()
     assert b"Password reset token:" not in response.content
     assert (
         b"If the account exists, a password reset email was sent." in response.content
