@@ -28,3 +28,12 @@ def test_map_app_reads_tile_url_from_template_dataset() -> None:
 
     assert "shell.dataset.tileUrl" in app_js
     assert "tile.openstreetmap.org" not in app_js
+
+
+def test_map_app_shows_radius_circle_only_while_selecting_radius() -> None:
+    app_js = APP_JS_PATH.read_text()
+
+    assert "L.circle(getSelectedLocation()" in app_js
+    assert 'radiusInput.addEventListener("input"' in app_js
+    assert 'radiusInput.addEventListener("pointerup"' in app_js
+    assert "hideRadiusCircle();" in app_js

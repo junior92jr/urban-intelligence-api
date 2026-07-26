@@ -19,6 +19,7 @@ const placeIcon = createMarkerIcon("#126b5a", [28, 40]);
 const map = L.map("map").setView(defaultCenter, 13);
 const resultMarkers = L.layerGroup().addTo(map);
 let selectedMarker = null;
+let radiusCircle = null;
 let currentSearchController = null;
 
 L.tileLayer(shell.dataset.tileUrl, {
@@ -35,6 +36,27 @@ map.on("click", (event) => {
 
 radiusInput.addEventListener("input", () => {
   radiusOutput.value = `${radiusInput.value} m`;
+  showRadiusCircle();
+});
+
+radiusInput.addEventListener("pointerdown", () => {
+  showRadiusCircle();
+});
+
+radiusInput.addEventListener("pointerup", () => {
+  hideRadiusCircle();
+});
+
+radiusInput.addEventListener("pointercancel", () => {
+  hideRadiusCircle();
+});
+
+radiusInput.addEventListener("focus", () => {
+  showRadiusCircle();
+});
+
+radiusInput.addEventListener("blur", () => {
+  hideRadiusCircle();
 });
 
 form.addEventListener("submit", async (event) => {
@@ -168,6 +190,7 @@ function renderPlaces(places) {
 function resetSearch() {
   currentSearchController?.abort();
   currentSearchController = null;
+  hideRadiusCircle();
   submitButton.disabled = false;
   categorySelect.value = defaultCategory;
   radiusInput.value = defaultRadius;
@@ -200,10 +223,47 @@ function setSelectedLocation(lat, lng, moveMap) {
   if (moveMap) {
     map.setView([lat, lng], Math.max(map.getZoom(), 14));
   }
+
+  if (radiusCircle !== null) {
+    updateRadiusCircle();
+  }
 }
 
 function setStatus(message) {
   statusElement.textContent = message;
+}
+
+function showRadiusCircle() {
+  if (radiusCircle === null) {
+    radiusCircle = L.circle(getSelectedLocation(), {
+      radius: Number(radiusInput.value),
+      color: "#126b5a",
+      weight: 2,
+      fillColor: "#126b5a",
+      fillOpacity: 0.12,
+      interactive: false,
+    }).addTo(map);
+  }
+
+  updateRadiusCircle();
+}
+
+function hideRadiusCircle() {
+  if (radiusCircle === null) {
+    return;
+  }
+
+  radiusCircle.remove();
+  radiusCircle = null;
+}
+
+function updateRadiusCircle() {
+  radiusCircle.setLatLng(getSelectedLocation());
+  radiusCircle.setRadius(Number(radiusInput.value));
+}
+
+function getSelectedLocation() {
+  return [Number(latInput.value), Number(lngInput.value)];
 }
 
 function createMarkerIcon(color, size) {
