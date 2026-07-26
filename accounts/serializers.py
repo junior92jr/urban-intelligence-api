@@ -13,6 +13,12 @@ from accounts.services import (
 )
 
 
+class ProfileSerializer(serializers.ModelSerializer[User]):
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = User
+        fields = ("id", "email", "first_name", "last_name", "full_name")
+
+
 class RegistrationSerializer(serializers.Serializer[dict[str, Any]]):
     email = serializers.EmailField()
     password = serializers.CharField(write_only=True, trim_whitespace=False)

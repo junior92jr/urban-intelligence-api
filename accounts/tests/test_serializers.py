@@ -7,6 +7,7 @@ from accounts.serializers import (
     ForgotPasswordSerializer,
     LoginSerializer,
     PasswordResetSerializer,
+    ProfileSerializer,
     RegistrationSerializer,
 )
 from accounts.services.registration import create_password_reset_token
@@ -95,6 +96,23 @@ def test_login_serializer_rejects_invalid_credentials() -> None:
 
     assert serializer.is_valid() is False
     assert "non_field_errors" in serializer.errors
+
+
+def test_profile_serializer_returns_public_profile_fields() -> None:
+    user = User.objects.create_user(
+        email="profile-serializer@example.com",
+        password="N3arby-Places-Key-842!",
+        first_name="Profile",
+        last_name="Owner",
+    )
+
+    assert ProfileSerializer(user).data == {
+        "id": user.pk,
+        "email": "profile-serializer@example.com",
+        "first_name": "Profile",
+        "last_name": "Owner",
+        "full_name": "Profile Owner",
+    }
 
 
 def test_activation_serializer_consumes_valid_token() -> None:

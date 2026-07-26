@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, cast
 
 from rest_framework import status
 from rest_framework.authtoken.models import Token
@@ -7,11 +7,13 @@ from rest_framework.request import Request
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
+from accounts.models import User
 from accounts.serializers import (
     ActivationSerializer,
     ForgotPasswordSerializer,
     LoginSerializer,
     PasswordResetSerializer,
+    ProfileSerializer,
     RegistrationSerializer,
 )
 
@@ -47,6 +49,14 @@ class LoginView(APIView):
                 "token_type": "Bearer",
             },
         )
+
+
+class ProfileView(APIView):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        user = cast(User, request.user)
+        return Response(ProfileSerializer(user).data)
 
 
 class LogoutView(APIView):

@@ -158,6 +158,31 @@ def test_logout_requires_authentication(api_client: APIClient) -> None:
     assert response.status_code == status.HTTP_401_UNAUTHORIZED
 
 
+def test_profile_returns_authenticated_user(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="me@example.com",
+        password="N3arby-Places-Key-842!",
+        first_name="Map",
+        last_name="Reader",
+        is_active=True,
+    )
+    token = Token.objects.create(user=user)
+
+    response = api_client.get(
+        "/api/v1/accounts/me/",
+        HTTP_AUTHORIZATION=f"Bearer {token.key}",
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json() == {
+        "id": user.pk,
+        "email": "me@example.com",
+        "first_name": "Map",
+        "last_name": "Reader",
+        "full_name": "Map Reader",
+    }
+
+
 def test_forgot_password_returns_reset_token_for_active_user(
     api_client: APIClient,
 ) -> None:
