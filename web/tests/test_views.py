@@ -1,13 +1,19 @@
+import re
 from pathlib import Path
+from typing import Any, cast
 
 import pytest
+from django.core import mail
+from django.test import override_settings
 from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
+from accounts.services.registration import register_user
 
 APP_JS_PATH = Path(__file__).resolve().parents[1] / "static/web/app.js"
+ACTIVATION_LINK_PATTERN = re.compile(r"http://testserver/activate/\?token=[^\s<]+")
 
 pytestmark = pytest.mark.django_db
 
@@ -57,7 +63,7 @@ def test_profile_page_requires_authentication(api_client: APIClient) -> None:
     [
         ("web:login", b"Sign in"),
         ("web:register", b"Create account"),
-        ("web:activate", b"Activate account"),
+        ("web:registration_sent", b"Check your email"),
         ("web:forgot_password", b"Forgot password"),
         ("web:reset_password", b"Reset password"),
     ],
@@ -73,6 +79,131 @@ def test_account_pages_render(
     assert title in response.content
     assert b"auth-layout" in response.content
     assert b"auth-panel" in response.content
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+def test_register_page_sends_activation_email(api_client: APIClient) -> None:
+    response = api_client.post(
+        reverse("web:register"),
+        {
+            "email": "register-web@example.com",
+            "password": "N3arby-Places-Key-842!",
+            "password_confirm": "N3arby-Places-Key-842!",
+            "first_name": "Register",
+            "last_name": "Member",
+        },
+        follow=True,
+    )
+    outbox = cast(list[Any], vars(mail)["outbox"])
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.redirect_chain == [
+        (reverse("web:registration_sent"), status.HTTP_302_FOUND),
+    ]
+    assert len(outbox) == 1
+    assert outbox[0].subject == "Activate your City Guide account"
+    assert outbox[0].to == ["register-web@example.com"]
+    assert "/activate/?token=" in outbox[0].body
+    assert "activation token" not in outbox[0].body.lower()
+    assert b"Activation token:" not in response.content
+    assert b"Check your email for the activation link." in response.content
+
+
+def test_register_page_rejects_mismatched_passwords(api_client: APIClient) -> None:
+    response = api_client.post(
+        reverse("web:register"),
+        {
+            "email": "mismatch-web@example.com",
+            "password": "N3arby-Places-Key-842!",
+            "password_confirm": "Different-Places-Key-842!",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert b"Passwords do not match." in response.content
+    assert not User.objects.filter(email="mismatch-web@example.com").exists()
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+def test_register_activation_email_link_activates_account(
+    api_client: APIClient,
+) -> None:
+    api_client.post(
+        reverse("web:register"),
+        {
+            "email": "register-link-web@example.com",
+            "password": "N3arby-Places-Key-842!",
+            "password_confirm": "N3arby-Places-Key-842!",
+        },
+    )
+    outbox = cast(list[Any], vars(mail)["outbox"])
+    activation_url_match = ACTIVATION_LINK_PATTERN.search(outbox[0].body)
+    assert activation_url_match is not None
+
+    response = api_client.get(activation_url_match.group(0))
+    user = User.objects.get(email="register-link-web@example.com")
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == reverse("web:map")
+    assert user.is_active is True
+    assert api_client.get(reverse("web:map")).status_code == status.HTTP_200_OK
+
+
+def test_activate_page_activates_account_from_email_link(
+    api_client: APIClient,
+) -> None:
+    user, activation_token = register_user(
+        email="activate-web@example.com",
+        password="N3arby-Places-Key-842!",
+    )
+
+    response = api_client.get(
+        reverse("web:activate"),
+        {"token": activation_token},
+    )
+    user.refresh_from_db()
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == reverse("web:map")
+    assert user.is_active is True
+    assert api_client.get(reverse("web:map")).status_code == status.HTTP_200_OK
+
+
+def test_activate_page_redirects_missing_token_to_login(
+    api_client: APIClient,
+) -> None:
+    response = api_client.get(reverse("web:activate"))
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == reverse("web:login")
+
+
+@override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
+def test_forgot_password_page_sends_reset_email_for_active_user(
+    api_client: APIClient,
+) -> None:
+    User.objects.create_user(
+        email="forgot-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+    )
+
+    response = api_client.post(
+        reverse("web:forgot_password"),
+        {"email": "forgot-web@example.com"},
+        follow=True,
+    )
+    outbox = cast(list[Any], vars(mail)["outbox"])
+
+    assert response.status_code == status.HTTP_200_OK
+    assert len(outbox) == 1
+    assert outbox[0].subject == "Reset your City Guide password"
+    assert outbox[0].to == ["forgot-web@example.com"]
+    assert "/reset-password/?token=" in outbox[0].body
+    assert b"Password reset token:" not in response.content
+    assert (
+        b"If the account exists, a password reset email was sent." in response.content
+    )
 
 
 def test_profile_page_renders_for_authenticated_user(api_client: APIClient) -> None:

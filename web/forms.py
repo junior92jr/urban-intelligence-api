@@ -1,4 +1,4 @@
-from typing import cast
+from typing import cast, override
 
 from django import forms
 from django.contrib.auth.forms import AuthenticationForm
@@ -7,7 +7,6 @@ from django.core.exceptions import ValidationError
 
 from accounts.models import User
 from accounts.services.registration import (
-    activate_account,
     create_password_reset_token,
     register_user,
     reset_password,
@@ -24,6 +23,10 @@ class RegistrationForm(forms.Form):
         widget=forms.PasswordInput,
         validators=[validate_password],
     )
+    password_confirm = forms.CharField(
+        label="Confirm password",
+        widget=forms.PasswordInput,
+    )
     first_name = forms.CharField(required=False)
     last_name = forms.CharField(required=False)
 
@@ -33,6 +36,19 @@ class RegistrationForm(forms.Form):
             raise ValidationError("An account already exists for this email.")
 
         return email
+
+    @override
+    def clean(self) -> dict[str, object] | None:
+        cleaned_data = super().clean()
+        if cleaned_data is None:
+            return None
+
+        password = cleaned_data.get("password")
+        password_confirm = cleaned_data.get("password_confirm")
+        if password and password_confirm and password != password_confirm:
+            self.add_error("password_confirm", "Passwords do not match.")
+
+        return cleaned_data
 
     def register(self) -> tuple[User, str]:
         return register_user(
@@ -64,17 +80,6 @@ class ResetPasswordForm(forms.Form):
         )
         if user is None:
             raise ValidationError("Reset token is invalid or expired.")
-
-        return user
-
-
-class ActivationForm(forms.Form):
-    token = forms.CharField()
-
-    def activate(self) -> User:
-        user = activate_account(cast(str, self.cleaned_data["token"]))
-        if user is None:
-            raise ValidationError("Activation token is invalid or expired.")
 
         return user
 

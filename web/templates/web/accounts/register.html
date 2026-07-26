@@ -9,7 +9,7 @@
       <div class="brand-mark" aria-hidden="true">CG</div>
       <p class="eyebrow">City Guide</p>
       <h1 id="register-title">Create account</h1>
-      <p>Start with an account, activate it with the returned token, then search the map.</p>
+      <p>Create an account, confirm it from your email, then start searching the map.</p>
     </section>
     <section class="auth-panel" aria-label="Create account form">
       <form class="auth-form" method="post">
@@ -34,6 +34,11 @@
           <span>Password</span>
           {{ form.password }}
           {{ form.password.errors }}
+        </label>
+        <label class="field">
+          <span>Confirm password</span>
+          {{ form.password_confirm }}
+          {{ form.password_confirm.errors }}
         </label>
         <button class="primary-button" type="submit">Create account</button>
       </form>

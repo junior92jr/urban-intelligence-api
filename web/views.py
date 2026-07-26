@@ -1,4 +1,4 @@
-from typing import Any, override
+from typing import Any, cast, override
 
 from django.conf import settings
 from django.contrib import messages
@@ -9,11 +9,13 @@ from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
+from django.views import View
 from django.views.decorators.http import require_POST
 from django.views.generic import FormView, TemplateView
 
+from accounts.services.registration import activate_account
+from web.emails import send_activation_email, send_password_reset_email
 from web.forms import (
-    ActivationForm,
     EmailAuthenticationForm,
     ForgotPasswordForm,
     RegistrationForm,
@@ -65,42 +67,42 @@ class LoginView(FormView):  # type: ignore[type-arg]
 class RegisterView(FormView):  # type: ignore[type-arg]
     form_class = RegistrationForm
     template_name = "web/accounts/register.html"
-    success_url = reverse_lazy("web:activate")
+    success_url = reverse_lazy("web:registration_sent")
 
     @override
     def form_valid(self, form: RegistrationForm) -> HttpResponse:
-        _, activation_token = form.register()
+        user, activation_token = form.register()
+        send_activation_email(
+            request=self.request,
+            email=user.email,
+            activation_token=activation_token,
+        )
         messages.success(
             self.request,
-            f"Account created. Activation token: {activation_token}",
+            "Account created. Check your email for the activation link.",
         )
         return super().form_valid(form)
 
 
-class ActivateView(FormView):  # type: ignore[type-arg]
-    form_class = ActivationForm
-    template_name = "web/accounts/activate.html"
-    success_url = reverse_lazy("web:map")
+class RegistrationSentView(TemplateView):
+    template_name = "web/accounts/registration_sent.html"
 
-    @override
-    def get_initial(self) -> dict[str, Any]:
-        initial = super().get_initial()
-        token = self.request.GET.get("token")
-        if token is not None:
-            initial["token"] = token
-        return initial
 
-    @override
-    def form_valid(self, form: ActivationForm) -> HttpResponse:
-        try:
-            user = form.activate()
-        except ValidationError as exc:
-            add_form_error(form, exc)
-            return self.form_invalid(form)
+class ActivateView(View):
+    def get(self, request: HttpRequest) -> HttpResponse:
+        token = request.GET.get("token")
+        if token is None:
+            messages.error(request, "Activation link is missing a token.")
+            return redirect("web:login")
 
-        login(self.request, user)
-        messages.success(self.request, "Account activated.")
-        return super().form_valid(form)
+        user = activate_account(token)
+        if user is None:
+            messages.error(request, "Activation link is invalid or expired.")
+            return redirect("web:login")
+
+        login(request, user)
+        messages.success(request, "Account activated.")
+        return redirect("web:map")
 
 
 class ForgotPasswordView(FormView):  # type: ignore[type-arg]
@@ -112,15 +114,16 @@ class ForgotPasswordView(FormView):  # type: ignore[type-arg]
     def form_valid(self, form: ForgotPasswordForm) -> HttpResponse:
         reset_token = form.create_reset_token()
         if reset_token is not None:
-            messages.success(
-                self.request,
-                f"Password reset token: {reset_token}",
+            send_password_reset_email(
+                request=self.request,
+                email=cast(str, form.cleaned_data["email"]),
+                reset_token=reset_token,
             )
-        else:
-            messages.success(
-                self.request,
-                "If the account exists, a password reset token was created.",
-            )
+
+        messages.success(
+            self.request,
+            "If the account exists, a password reset email was sent.",
+        )
         return super().form_valid(form)
 
 

@@ -1,0 +1,23 @@
+{% extends "web/base.html" %}
+
+{% block title %}Check Your Email - City Guide{% endblock %}
+
+{% block body %}
+<main class="auth-page">
+  <div class="auth-layout">
+    <section class="auth-hero" aria-labelledby="registration-sent-title">
+      <div class="brand-mark" aria-hidden="true">CG</div>
+      <p class="eyebrow">City Guide</p>
+      <h1 id="registration-sent-title">Check your email</h1>
+      <p>Use the activation link we sent to finish creating your account.</p>
+    </section>
+    <section class="auth-panel" aria-label="Registration email sent">
+      {% include "web/includes/messages.html" %}
+      <p class="auth-note">In local development, Django prints the email in the terminal running the server.</p>
+      <div class="auth-links">
+        <a href="{% url 'web:login' %}">Back to sign in</a>
+      </div>
+    </section>
+  </div>
+</main>
+{% endblock %}

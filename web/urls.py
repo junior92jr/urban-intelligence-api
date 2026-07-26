@@ -7,6 +7,7 @@ from .views import (
     MapView,
     ProfileView,
     RegisterView,
+    RegistrationSentView,
     ResetPasswordView,
     logout_view,
 )
@@ -18,6 +19,11 @@ urlpatterns = [
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", logout_view, name="logout"),
     path("register/", RegisterView.as_view(), name="register"),
+    path(
+        "registration-sent/",
+        RegistrationSentView.as_view(),
+        name="registration_sent",
+    ),
     path("activate/", ActivateView.as_view(), name="activate"),
     path("forgot-password/", ForgotPasswordView.as_view(), name="forgot_password"),
     path("reset-password/", ResetPasswordView.as_view(), name="reset_password"),

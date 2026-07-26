@@ -29,6 +29,16 @@ env = environ.Env(
         str,
         "OpenStreetMap contributors.",
     ),
+    EMAIL_BACKEND=(
+        str,
+        "django.core.mail.backends.console.EmailBackend",
+    ),
+    EMAIL_HOST=(str, ""),
+    EMAIL_PORT=(int, 587),
+    EMAIL_HOST_USER=(str, ""),
+    EMAIL_HOST_PASSWORD=(str, ""),
+    EMAIL_USE_TLS=(bool, True),
+    DEFAULT_FROM_EMAIL=(str, "City Guide <noreply@localhost>"),
     CACHE_TIMEOUT_IN_SECS=(int, 86400),
 )
 
@@ -197,6 +207,22 @@ MAP_TILE_URL = env("MAP_TILE_URL")
 MAP_TILE_ATTRIBUTION = env("MAP_TILE_ATTRIBUTION")
 
 CACHE_TIMEOUT_IN_SECS = env("CACHE_TIMEOUT_IN_SECS")
+
+
+# Email
+EMAIL_BACKEND = env("EMAIL_BACKEND")
+
+EMAIL_HOST = env("EMAIL_HOST")
+
+EMAIL_PORT = env("EMAIL_PORT")
+
+EMAIL_HOST_USER = env("EMAIL_HOST_USER")
+
+EMAIL_HOST_PASSWORD = env("EMAIL_HOST_PASSWORD")
+
+EMAIL_USE_TLS = env("EMAIL_USE_TLS")
+
+DEFAULT_FROM_EMAIL = env("DEFAULT_FROM_EMAIL")
 
 
 # Django REST Framework

@@ -114,13 +114,14 @@ Rendered web pages are handled by the `web` app:
 (GET) /maps/
 (GET) /login/
 (GET) /register/
-(GET) /activate/
+(GET) /registration-sent/
+(GET) /activate/?token=<activation-token>
 (GET) /forgot-password/
 (GET) /reset-password/
 (GET) /profile/
 ```
 
-The map page redirects anonymous users to the login page. Place search starts only after authentication.
+The activation link activates the account, signs the user in, and redirects to the map. The map page redirects anonymous users to the login page. Place search starts only after authentication.
 
 ### How to use the location service
 
@@ -227,6 +228,13 @@ OPEN_STREET_MAP_TIMEOUT_IN_SECS=20
 OPEN_STREET_MAP_MAX_RETRIES=2
 MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
 MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
+EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
+EMAIL_HOST=
+EMAIL_PORT=587
+EMAIL_HOST_USER=
+EMAIL_HOST_PASSWORD=
+EMAIL_USE_TLS=True
+DEFAULT_FROM_EMAIL=City Guide <noreply@localhost>
 CACHE_TIMEOUT_IN_SECS=86400
 ```
 
@@ -251,6 +259,24 @@ MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
 ```
 
 For production traffic, configure a proper tile provider in `MAP_TILE_URL` and update `MAP_TILE_ATTRIBUTION`.
+
+### Local dev: account emails
+
+The default email backend prints activation and password reset emails in the terminal where `runserver` is running.
+
+For Gmail SMTP in production, configure:
+
+```env
+EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_HOST_USER=your-address@gmail.com
+EMAIL_HOST_PASSWORD=your-google-app-password
+EMAIL_USE_TLS=True
+DEFAULT_FROM_EMAIL=City Guide <your-address@gmail.com>
+```
+
+Gmail requires an app password for SMTP when two-step verification is enabled.
 
 # Running the project
 ## Run the project
