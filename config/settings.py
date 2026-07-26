@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
+    "accounts",
     "maps",
     "places",
 ]
@@ -169,6 +170,14 @@ TASKS = {
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
 
+# Authentication
+AUTH_USER_MODEL = "accounts.User"
+
+ACCOUNT_ACTIVATION_TOKEN_TTL_IN_HOURS = 24
+
+ACCOUNT_PASSWORD_RESET_TOKEN_TTL_IN_HOURS = 1
+
+
 # External services
 OPEN_STREET_MAP_OVERPASS_URL = env("OPEN_STREET_MAP_OVERPASS_URL")
 
@@ -188,6 +197,6 @@ CACHE_TIMEOUT_IN_SECS = env("CACHE_TIMEOUT_IN_SECS")
 # Django REST Framework
 REST_FRAMEWORK = {
     "DEFAULT_AUTHENTICATION_CLASSES": [
-        "rest_framework.authentication.TokenAuthentication",
+        "accounts.authentication.BearerTokenAuthentication",
     ],
 }

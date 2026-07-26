@@ -14,24 +14,92 @@ This API should provide dynamic information that will be displayed in a frontend
 
 This project is still in development but already provides functional endpoints ready to use:
 
-### How to Authenticate
-Auth endpoint:
+### How to authenticate
+
+Register a new account:
 ```
-(POST) /api/v1/api-token-auth/
+(POST) /api/v1/accounts/register/
 ```
 Body Request:
 ```
 {
-  "username": "user",
+  "email": "user@example.com",
   "password": "user_pass"
 }
 ```
 Response:
 ```
 {
-    "token": "fbfd14c374618e78bc9bbe1f6a576489a94f61f7"
+  "id": 1,
+  "email": "user@example.com",
+  "activation_token": "account-activation-token"
 }
 ```
+
+Activate an account:
+```
+(POST) /api/v1/accounts/activate/
+```
+Body Request:
+```
+{
+  "token": "account-activation-token"
+}
+```
+
+Login:
+```
+(POST) /api/v1/accounts/login/
+```
+Body Request:
+```
+{
+  "email": "user@example.com",
+  "password": "user_pass"
+}
+```
+Response:
+```
+{
+  "token": "fbfd14c374618e78bc9bbe1f6a576489a94f61f7",
+  "token_type": "Bearer"
+}
+```
+
+Authenticated requests should send the token as:
+```
+Authorization: Bearer fbfd14c374618e78bc9bbe1f6a576489a94f61f7
+```
+
+Logout deletes the current bearer token:
+```
+(POST) /api/v1/accounts/logout/
+```
+
+Create a password reset token:
+```
+(POST) /api/v1/accounts/forgot-password/
+```
+Body Request:
+```
+{
+  "email": "user@example.com"
+}
+```
+
+Reset a password:
+```
+(POST) /api/v1/accounts/reset-password/
+```
+Body Request:
+```
+{
+  "token": "password-reset-token",
+  "password": "new_user_pass"
+}
+```
+
+Account activation and password reset tokens are stored hashed, returned once, and consumed on use. This API does not send confirmation or password reset emails.
 
 ### How to use the location service
 
