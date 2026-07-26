@@ -1,0 +1,68 @@
+{% extends "web/base.html" %}
+{% load static %}
+
+{% block title %}Profile - City Guide{% endblock %}
+
+{% block body_class %}site-page site-page--flush{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+{% endblock %}
+
+{% block body %}
+<main
+  class="map-shell"
+  data-tile-url="{{ map_tile_url }}"
+  data-tile-attribution="{{ map_tile_attribution }}"
+>
+  <aside class="sidebar" aria-label="Account navigation">
+    <div class="sidebar-content">
+      <header class="app-header">
+        <div class="brand-mark" aria-hidden="true">CG</div>
+        <div>
+          <p class="eyebrow">City Guide</p>
+          <h1 id="profile-title">Profile</h1>
+        </div>
+      </header>
+
+      <div class="account-strip">
+        <span>{{ request.user.email }}</span>
+        <a href="{% url 'web:map' %}">Map</a>
+      </div>
+
+      <section class="profile-card" aria-label="Profile details">
+        <div class="results-header">
+          <p class="eyebrow">Account</p>
+          <h2>Your details</h2>
+          <p class="status">Your account keeps authenticated map search available in the browser.</p>
+        </div>
+
+        <dl class="profile-list">
+          <div>
+            <dt>Email</dt>
+            <dd>{{ request.user.email }}</dd>
+          </div>
+          <div>
+            <dt>Name</dt>
+            <dd>{{ request.user.full_name|default:"Not set" }}</dd>
+          </div>
+        </dl>
+      </section>
+
+      <form method="post" action="{% url 'web:logout' %}">
+        {% csrf_token %}
+        <button class="secondary-button" type="submit">Sign out</button>
+      </form>
+    </div>
+  </aside>
+
+  <section class="map-panel" aria-label="Map">
+    <div id="map"></div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="{% static 'web/app.js' %}" defer></script>
+{% endblock %}

@@ -1,6 +1,6 @@
 const shell = document.querySelector(".map-shell");
 const form = document.querySelector("#search-form");
-const submitButton = form.querySelector("button[type='submit']");
+const submitButton = form?.querySelector("button[type='submit']");
 const latInput = document.querySelector("#lat");
 const lngInput = document.querySelector("#lng");
 const categorySelect = document.querySelector("#category");
@@ -27,44 +27,50 @@ L.tileLayer(shell.dataset.tileUrl, {
   attribution: shell.dataset.tileAttribution,
 }).addTo(map);
 
-setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
-loadCategories();
+if (form !== null) {
+  setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
+  loadCategories();
+}
 
 map.on("click", (event) => {
+  if (form === null) {
+    return;
+  }
+
   setSelectedLocation(event.latlng.lat, event.latlng.lng, true);
 });
 
-radiusInput.addEventListener("input", () => {
+radiusInput?.addEventListener("input", () => {
   radiusOutput.value = `${radiusInput.value} m`;
   showRadiusCircle();
 });
 
-radiusInput.addEventListener("pointerdown", () => {
+radiusInput?.addEventListener("pointerdown", () => {
   showRadiusCircle();
 });
 
-radiusInput.addEventListener("pointerup", () => {
+radiusInput?.addEventListener("pointerup", () => {
   hideRadiusCircle();
 });
 
-radiusInput.addEventListener("pointercancel", () => {
+radiusInput?.addEventListener("pointercancel", () => {
   hideRadiusCircle();
 });
 
-radiusInput.addEventListener("focus", () => {
+radiusInput?.addEventListener("focus", () => {
   showRadiusCircle();
 });
 
-radiusInput.addEventListener("blur", () => {
+radiusInput?.addEventListener("blur", () => {
   hideRadiusCircle();
 });
 
-form.addEventListener("submit", async (event) => {
+form?.addEventListener("submit", async (event) => {
   event.preventDefault();
   await searchPlaces();
 });
 
-locateButton.addEventListener("click", () => {
+locateButton?.addEventListener("click", () => {
   if (!navigator.geolocation) {
     setStatus("Location is not available in this browser.");
     return;
@@ -82,7 +88,7 @@ locateButton.addEventListener("click", () => {
   );
 });
 
-resetButton.addEventListener("click", () => {
+resetButton?.addEventListener("click", () => {
   resetSearch();
 });
 

@@ -23,13 +23,24 @@
 
 html,
 body {
-  min-height: 100%;
+  min-height: 100vh;
 }
 
 body {
   margin: 0;
   background: var(--page);
   color: var(--ink);
+}
+
+.site-page {
+  display: grid;
+  min-height: 100vh;
+  padding: clamp(16px, 3vw, 32px);
+}
+
+.site-page--flush {
+  display: block;
+  padding: 0;
 }
 
 button,
@@ -197,11 +208,14 @@ h2 {
 .secondary-button {
   display: inline-grid;
   min-height: 44px;
+  padding: 0 16px;
   place-items: center;
   border-radius: 7px;
   border: 1px solid transparent;
   cursor: pointer;
   font-weight: 850;
+  text-align: center;
+  text-decoration: none;
   transition:
     background-color 140ms ease,
     border-color 140ms ease,
@@ -251,6 +265,200 @@ h2 {
   min-height: 20px;
   color: var(--muted);
   font-size: 0.88rem;
+}
+
+.account-strip {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 750;
+}
+
+.account-strip a,
+.auth-links a,
+.auth-note a,
+.text-link {
+  color: var(--primary);
+  font-weight: 850;
+  text-decoration: none;
+}
+
+.account-strip a:hover,
+.auth-links a:hover,
+.auth-note a:hover,
+.text-link:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+.auth-gate {
+  margin-top: 4px;
+}
+
+.auth-copy {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-copy p,
+.auth-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.auth-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  align-items: center;
+}
+
+.auth-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  width: 100%;
+}
+
+.auth-layout {
+  display: grid;
+  grid-template-columns: minmax(280px, 0.86fr) minmax(340px, 460px);
+  gap: 34px;
+  align-items: center;
+  width: min(100%, 980px);
+  margin: 0 auto;
+  padding: clamp(14px, 2vw, 20px);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgb(255 255 255 / 58%);
+  box-shadow: var(--shadow);
+}
+
+.auth-hero {
+  display: grid;
+  gap: 14px;
+  align-content: center;
+  min-height: 420px;
+  padding: 32px;
+  border-radius: 8px;
+  background:
+    linear-gradient(160deg, rgb(18 107 90 / 94%), rgb(13 79 67 / 92%)),
+    var(--primary);
+  color: #fff;
+  box-shadow: var(--shadow);
+}
+
+.auth-hero .brand-mark {
+  background: #fff;
+  color: var(--primary);
+}
+
+.auth-hero .eyebrow {
+  color: var(--accent-soft);
+}
+
+.auth-hero p {
+  max-width: 36ch;
+  margin: 0;
+  color: rgb(255 255 255 / 82%);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.auth-panel {
+  display: grid;
+  gap: 18px;
+  width: 100%;
+  max-width: 460px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.messages {
+  display: grid;
+  gap: 8px;
+}
+
+.message,
+.errorlist {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 8px;
+  font-size: 0.88rem;
+  line-height: 1.45;
+}
+
+.message {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 750;
+}
+
+.errorlist {
+  list-style: none;
+  background: #fff0f0;
+  color: #a33a3a;
+}
+
+.profile-list {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+}
+
+.profile-list div {
+  display: grid;
+  gap: 4px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.profile-list dt {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 850;
+  text-transform: uppercase;
+}
+
+.profile-list dd {
+  margin: 0;
+  color: var(--ink);
+  font-weight: 750;
+}
+
+.profile-card {
+  display: grid;
+  gap: 18px;
+  padding: 24px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
 }
 
 .results {
@@ -394,6 +602,15 @@ h2 {
     grid-template-columns: 1fr;
   }
 
+  .auth-layout {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .auth-hero {
+    min-height: auto;
+  }
+
   .sidebar {
     min-height: auto;
     padding: 16px;
@@ -412,6 +629,10 @@ h2 {
 
   .field-grid,
   .actions {
+    grid-template-columns: 1fr;
+  }
+
+  .auth-actions {
     grid-template-columns: 1fr;
   }
 
