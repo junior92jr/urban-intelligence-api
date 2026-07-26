@@ -5,7 +5,7 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-APP_JS_PATH = Path(__file__).resolve().parents[1] / "static/maps/app.js"
+APP_JS_PATH = Path(__file__).resolve().parents[1] / "static/web/app.js"
 
 
 @pytest.fixture
@@ -14,7 +14,7 @@ def api_client() -> APIClient:
 
 
 def test_map_page_renders(api_client: APIClient) -> None:
-    response = api_client.get(reverse("maps:index"))
+    response = api_client.get(reverse("web:index"))
 
     assert response.status_code == status.HTTP_200_OK
     assert b'id="map"' in response.content
