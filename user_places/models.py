@@ -32,3 +32,24 @@ class FavoritePlace(models.Model):
     @override
     def __str__(self) -> str:
         return f"{self.user} - {self.name}"
+
+
+class SearchHistory(models.Model):
+    user = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name="place_searches",
+    )
+    latitude = models.FloatField()
+    longitude = models.FloatField()
+    search_radius = models.PositiveIntegerField()
+    category = models.CharField(max_length=100, blank=True)
+    result_count = models.PositiveIntegerField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ("-created_at",)
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.user} - {self.latitude}, {self.longitude}"

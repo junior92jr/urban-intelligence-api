@@ -6,6 +6,7 @@ from rest_framework.test import APIClient
 from accounts.models import User
 from places import views
 from places.services.mappers import OpenStreetMapApiResponse
+from user_places.models import SearchHistory
 
 pytestmark = pytest.mark.django_db
 
@@ -89,6 +90,43 @@ def test_places_returns_mapped_open_street_map_response(authenticated_api_client
             },
         ],
     }
+
+
+def test_places_records_search_history(authenticated_api_client):
+    service_response = OpenStreetMapApiResponse.from_api_response(
+        {
+            "elements": [
+                {
+                    "type": "node",
+                    "id": 331124761,
+                    "lat": 51.9322712,
+                    "lon": 6.9442418,
+                    "tags": {
+                        "historic": "wayside_shrine",
+                        "name": "Heiliger Ludgerus",
+                    },
+                },
+            ],
+        }
+    )
+    mocker(views).mock("search_places_by_location").return_value(service_response)
+
+    response = authenticated_api_client.get(
+        "/api/v1/places/",
+        {
+            "lat": "50.1101038",
+            "lng": "8.6771586",
+            "category": "parking",
+        },
+    )
+
+    history = SearchHistory.objects.get()
+    assert response.status_code == status.HTTP_200_OK
+    assert history.latitude == 50.1101038
+    assert history.longitude == 8.6771586
+    assert history.search_radius == 500
+    assert history.category == "parking"
+    assert history.result_count == 1
 
 
 def test_places_passes_optional_radius_to_search_service(authenticated_api_client):

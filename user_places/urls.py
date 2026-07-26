@@ -1,6 +1,10 @@
 from django.urls import path
 
-from user_places.views import FavoritePlaceDestroyView, FavoritePlaceListCreateView
+from user_places.views import (
+    FavoritePlaceDestroyView,
+    FavoritePlaceListCreateView,
+    SearchHistoryListView,
+)
 
 app_name = "user_places"
 
@@ -11,4 +15,5 @@ urlpatterns = [
         FavoritePlaceDestroyView.as_view(),
         name="favorite_detail",
     ),
+    path("search-history/", SearchHistoryListView.as_view(), name="search_history"),
 ]

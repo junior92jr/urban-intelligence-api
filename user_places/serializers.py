@@ -2,7 +2,7 @@ from typing import Any, cast, override
 
 from rest_framework import serializers
 
-from user_places.models import FavoritePlace
+from user_places.models import FavoritePlace, SearchHistory
 
 
 class FavoritePlaceSerializer(serializers.ModelSerializer[FavoritePlace]):
@@ -32,3 +32,18 @@ class FavoritePlaceSerializer(serializers.ModelSerializer[FavoritePlace]):
         )
 
         return favorite
+
+
+class SearchHistorySerializer(serializers.ModelSerializer[SearchHistory]):
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = SearchHistory
+        fields = (
+            "id",
+            "latitude",
+            "longitude",
+            "search_radius",
+            "category",
+            "result_count",
+            "created_at",
+        )
+        read_only_fields = fields

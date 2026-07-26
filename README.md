@@ -113,6 +113,7 @@ Rendered web pages are handled by the `web` app:
 ```
 (GET) /maps/
 (GET) /favorites/
+(GET) /history/
 (GET) /login/
 (GET) /register/
 (GET) /registration-sent/
@@ -165,6 +166,11 @@ List saved favorite places:
 Remove a saved favorite place:
 ```
 (DELETE) /api/v1/user-places/favorites/<osm_uid>/
+```
+
+List recent authenticated place searches:
+```
+(GET) /api/v1/user-places/search-history/
 ```
 
 Use the map interface:

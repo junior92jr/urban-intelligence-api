@@ -5,8 +5,8 @@ from rest_framework import generics
 from rest_framework.permissions import IsAuthenticated
 
 from accounts.models import User
-from user_places.models import FavoritePlace
-from user_places.serializers import FavoritePlaceSerializer
+from user_places.models import FavoritePlace, SearchHistory
+from user_places.serializers import FavoritePlaceSerializer, SearchHistorySerializer
 
 
 class FavoritePlaceListCreateView(generics.ListCreateAPIView[FavoritePlace]):
@@ -26,3 +26,12 @@ class FavoritePlaceDestroyView(generics.DestroyAPIView[FavoritePlace]):
     @override
     def get_queryset(self) -> QuerySet[FavoritePlace]:
         return FavoritePlace.objects.filter(user=cast(User, self.request.user))
+
+
+class SearchHistoryListView(generics.ListAPIView[SearchHistory]):
+    serializer_class = SearchHistorySerializer
+    permission_classes = (IsAuthenticated,)
+
+    @override
+    def get_queryset(self) -> QuerySet[SearchHistory]:
+        return SearchHistory.objects.filter(user=cast(User, self.request.user))
