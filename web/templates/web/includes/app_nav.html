@@ -31,6 +31,14 @@
     </svg>
     <span>Favorites</span>
   </a>
+  <a class="rail-link {% if active_nav == 'history' %}rail-link--active{% endif %}" href="{% url 'web:history' %}" aria-label="History" title="History">
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+      <path d="M3 3v6h6"></path>
+      <path d="M12 7v5l3 2"></path>
+    </svg>
+    <span>History</span>
+  </a>
   <a class="rail-link {% if active_nav == 'profile' %}rail-link--active{% endif %}" href="{% url 'web:profile' %}" aria-label="Profile" title="Profile">
     <svg aria-hidden="true" viewBox="0 0 24 24">
       <path d="M20 21a8 8 0 0 0-16 0"></path>

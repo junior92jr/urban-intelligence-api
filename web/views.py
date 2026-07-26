@@ -179,6 +179,19 @@ class FavoritesView(LoginRequiredMixin, TemplateView):
         return context
 
 
+class HistoryView(LoginRequiredMixin, TemplateView):
+    template_name = "web/user_places/history.html"
+    login_url = reverse_lazy("web:login")
+
+    @override
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context.update(get_map_tile_context())
+        context["active_nav"] = "history"
+
+        return context
+
+
 @require_POST
 @login_required(login_url=reverse_lazy("web:login"))
 def logout_view(request: HttpRequest) -> HttpResponse:

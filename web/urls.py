@@ -4,6 +4,7 @@ from .views import (
     ActivateView,
     FavoritesView,
     ForgotPasswordView,
+    HistoryView,
     LoginView,
     MapView,
     ProfileView,
@@ -18,6 +19,7 @@ app_name = "web"
 urlpatterns = [
     path("maps/", MapView.as_view(), name="map"),
     path("favorites/", FavoritesView.as_view(), name="favorites"),
+    path("history/", HistoryView.as_view(), name="history"),
     path("login/", LoginView.as_view(), name="login"),
     path("logout/", logout_view, name="logout"),
     path("register/", RegisterView.as_view(), name="register"),

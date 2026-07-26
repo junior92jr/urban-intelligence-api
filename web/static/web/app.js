@@ -11,6 +11,7 @@ const resetButton = document.querySelector("#reset-button");
 const statusElement = document.querySelector("#status");
 const resultsElement = document.querySelector("#results");
 const favoriteResultsElement = document.querySelector("#favorite-results");
+const historyResultsElement = document.querySelector("#history-results");
 const navToggleButton = document.querySelector(".rail-toggle");
 
 const navCollapsedStorageKey = "cityGuide.navCollapsed";
@@ -35,12 +36,16 @@ applyNavigationState(localStorage.getItem(navCollapsedStorageKey) === "true");
 
 if (form !== null) {
   setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
-  loadCategories();
+  loadCategories().then(restoreSearchFromUrl);
   loadFavorites();
 }
 
 if (favoriteResultsElement !== null) {
   loadFavoritePlaces();
+}
+
+if (historyResultsElement !== null) {
+  loadSearchHistory();
 }
 
 map.on("click", (event) => {
@@ -157,6 +162,22 @@ async function loadFavoritePlaces() {
     renderFavoritePlaces(favorites);
   } catch {
     setStatus("Favorites are not available right now.");
+  }
+}
+
+async function loadSearchHistory() {
+  setStatus("Loading recent searches...");
+
+  try {
+    const response = await fetch(shell.dataset.historyUrl);
+    if (!response.ok) {
+      throw new Error("History request failed.");
+    }
+
+    const searches = await response.json();
+    renderSearchHistory(searches);
+  } catch {
+    setStatus("Search history is not available right now.");
   }
 }
 
@@ -308,6 +329,80 @@ function renderFavoritePlaces(favorites) {
   setStatus(`${favorites.length} favorite places saved.`);
 }
 
+function renderSearchHistory(searches) {
+  historyResultsElement.replaceChildren();
+  resultMarkers.clearLayers();
+
+  if (searches.length === 0) {
+    setStatus("No recent searches yet.");
+    return;
+  }
+
+  const bounds = [];
+
+  searches.forEach((search) => {
+    const marker = L.marker([search.latitude, search.longitude], {
+      icon: selectedLocationIcon,
+    })
+      .bindPopup(`<strong>${escapeHtml(formatSearchTitle(search))}</strong><br>${search.result_count} results`)
+      .addTo(resultMarkers);
+
+    bounds.push([search.latitude, search.longitude]);
+
+    const item = document.createElement("li");
+    item.className = "result-item";
+
+    const link = document.createElement("a");
+    link.className = "result-place-button";
+    link.href = buildSearchUrl(search);
+    link.textContent = formatSearchTitle(search);
+
+    const meta = document.createElement("span");
+    meta.className = "result-meta";
+    meta.textContent = `${search.search_radius} m · ${search.result_count} results · ${search.latitude.toFixed(5)}, ${search.longitude.toFixed(5)}`;
+
+    item.append(link, meta);
+    historyResultsElement.append(item);
+  });
+
+  map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
+  setStatus(`${searches.length} recent searches.`);
+}
+
+function restoreSearchFromUrl() {
+  const params = new URLSearchParams(window.location.search);
+  const lat = params.get("lat");
+  const lng = params.get("lng");
+  const searchRadius = params.get("search_radius");
+  const category = params.get("category");
+
+  if (lat === null || lng === null) {
+    return;
+  }
+
+  latInput.value = lat;
+  lngInput.value = lng;
+
+  if (searchRadius !== null) {
+    radiusInput.value = searchRadius;
+    radiusOutput.value = `${searchRadius} m`;
+  }
+
+  if (category !== null) {
+    const selectCategory = () => {
+      categorySelect.value = category;
+    };
+    if (categorySelect.options.length > 0) {
+      selectCategory();
+    } else {
+      setTimeout(selectCategory, 100);
+    }
+  }
+
+  setSelectedLocation(Number(lat), Number(lng), true);
+  searchPlaces();
+}
+
 function resetSearch() {
   currentSearchController?.abort();
   currentSearchController = null;
@@ -435,6 +530,31 @@ function getCookie(name) {
     .find((item) => item.startsWith(`${name}=`));
 
   return cookie ? decodeURIComponent(cookie.split("=")[1]) : "";
+}
+
+function buildSearchUrl(search) {
+  const params = new URLSearchParams({
+    lat: search.latitude,
+    lng: search.longitude,
+    search_radius: search.search_radius,
+  });
+
+  if (search.category !== "") {
+    params.set("category", search.category);
+  }
+
+  return `${shell.dataset.mapUrl}?${params}`;
+}
+
+function formatSearchTitle(search) {
+  return search.category === "" ? "Default categories" : titleize(search.category);
+}
+
+function titleize(value) {
+  return value
+    .split("-")
+    .map((word) => `${word.charAt(0).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
 }
 
 function showRadiusCircle() {

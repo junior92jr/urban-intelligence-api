@@ -1,0 +1,53 @@
+{% extends "web/base.html" %}
+{% load static %}
+
+{% block title %}Search History - City Guide{% endblock %}
+
+{% block body_class %}site-page site-page--flush{% endblock %}
+
+{% block styles %}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.css">
+{% endblock %}
+
+{% block body %}
+<main
+  class="map-shell"
+  data-history-url="/api/v1/user-places/search-history/"
+  data-map-url="{% url 'web:map' %}"
+  data-tile-url="{{ map_tile_url }}"
+  data-tile-attribution="{{ map_tile_attribution }}"
+>
+  {% include "web/includes/app_nav.html" %}
+  <aside class="sidebar" aria-label="Recent searches">
+    <div class="sidebar-content">
+      <header class="app-header">
+        <div class="brand-mark" aria-hidden="true">CG</div>
+        <div>
+          <p class="eyebrow">City Guide</p>
+          <h1>History</h1>
+        </div>
+      </header>
+
+      <div class="account-strip">
+        <span>{{ request.user.email }}</span>
+        <a href="{% url 'web:map' %}">Map</a>
+      </div>
+
+      <div class="results-header">
+        <h2>Recent Searches</h2>
+        <div class="status" id="status" role="status"></div>
+      </div>
+      <ol class="results" id="history-results" aria-label="Recent searches"></ol>
+    </div>
+  </aside>
+
+  <section class="map-panel" aria-label="Map">
+    <div id="map"></div>
+  </section>
+</main>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.js"></script>
+    <script src="{% static 'web/app.js' %}" defer></script>
+{% endblock %}

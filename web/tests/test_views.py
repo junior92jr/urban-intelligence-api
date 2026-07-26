@@ -68,6 +68,13 @@ def test_favorites_page_requires_authentication(api_client: APIClient) -> None:
     assert response["Location"].startswith(str(reverse("web:login")))
 
 
+def test_history_page_requires_authentication(api_client: APIClient) -> None:
+    response = api_client.get(reverse("web:history"))
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"].startswith(str(reverse("web:login")))
+
+
 @pytest.mark.parametrize(
     ("url_name", "title"),
     [
@@ -256,6 +263,24 @@ def test_favorites_page_renders_for_authenticated_user(api_client: APIClient) ->
     assert b"app-rail" in response.content
 
 
+def test_history_page_renders_for_authenticated_user(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="history-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+    )
+    api_client.force_login(user)
+
+    response = api_client.get(reverse("web:history"))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert b"History" in response.content
+    assert b'id="history-results"' in response.content
+    assert b'id="map"' in response.content
+    assert b"data-history-url=" in response.content
+    assert b"app-rail" in response.content
+
+
 def test_map_app_reads_tile_url_from_template_dataset() -> None:
     app_js = APP_JS_PATH.read_text()
 
@@ -290,6 +315,8 @@ def test_map_app_supports_favorite_toggles() -> None:
     assert "rail-toggle" in app_js
     assert "cityGuide.navCollapsed" in app_js
     assert "applyNavigationState" in app_js
+    assert "loadSearchHistory" in app_js
+    assert "restoreSearchFromUrl" in app_js
 
 
 def test_collapsed_navigation_keeps_toggle_visible() -> None:
