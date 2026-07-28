@@ -312,6 +312,9 @@ def test_map_app_supports_favorite_toggles() -> None:
     assert "toggleFavorite(place" in app_js
     assert "favoriteOsmUids" in app_js
     assert "renderFavoritePlaces" in app_js
+    assert "favoritePlaceIcon" in app_js
+    assert "createHeartMarkerIcon" in app_js
+    assert "getPlaceMarkerIcon" in app_js
     assert "rail-toggle" in app_js
     assert "cityGuide.navCollapsed" in app_js
     assert "applyNavigationState" in app_js
@@ -327,3 +330,20 @@ def test_collapsed_navigation_keeps_toggle_visible() -> None:
     assert '.map-shell[data-nav-collapsed="true"] .rail-link span' in styles
     assert "rail-toggle-icon--collapse" in styles
     assert "rail-toggle-icon--expand" in styles
+
+
+def test_sidebar_results_scroll_inside_map_shell() -> None:
+    styles = STYLES_PATH.read_text()
+
+    assert "height: 100vh;" in styles
+    assert "overflow: hidden;" in styles
+    assert "overflow-y: auto;" in styles
+    assert "overscroll-behavior: contain;" in styles
+
+
+def test_favorite_button_uses_compact_heart_style() -> None:
+    styles = STYLES_PATH.read_text()
+
+    assert "border-radius: 999px;" in styles
+    assert "position: absolute;" in styles
+    assert "box-shadow: 0 6px 18px" in styles

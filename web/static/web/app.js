@@ -20,6 +20,7 @@ const defaultCategory = "restaurant";
 const defaultRadius = "500";
 const selectedLocationIcon = createMarkerIcon("#c56a2c", [34, 48]);
 const placeIcon = createMarkerIcon("#126b5a", [28, 40]);
+const favoritePlaceIcon = createHeartMarkerIcon("#c56a2c");
 const map = L.map("map").setView(defaultCenter, 13);
 const resultMarkers = L.layerGroup().addTo(map);
 let selectedMarker = null;
@@ -232,7 +233,7 @@ function renderPlaces(places) {
 
   places.forEach((place) => {
     const marker = L.marker([place.latitude, place.longitude], {
-      icon: placeIcon,
+      icon: getPlaceMarkerIcon(place),
     })
       .bindPopup(`<strong>${escapeHtml(place.name)}</strong><br>${escapeHtml(place.category_name)}`)
       .addTo(resultMarkers);
@@ -261,6 +262,7 @@ function renderPlaces(places) {
     updateFavoriteButton(favoriteButton, place);
     favoriteButton.addEventListener("click", async () => {
       await toggleFavorite(place, favoriteButton);
+      marker.setIcon(getPlaceMarkerIcon(place));
     });
 
     item.append(button, meta, favoriteButton);
@@ -284,7 +286,7 @@ function renderFavoritePlaces(favorites) {
 
   favorites.forEach((place) => {
     const marker = L.marker([place.latitude, place.longitude], {
-      icon: placeIcon,
+      icon: favoritePlaceIcon,
     })
       .bindPopup(`<strong>${escapeHtml(place.name)}</strong><br>${escapeHtml(place.category_name)}`)
       .addTo(resultMarkers);
@@ -557,6 +559,10 @@ function titleize(value) {
     .join(" ");
 }
 
+function getPlaceMarkerIcon(place) {
+  return favoriteOsmUids.has(place.osm_uid) ? favoritePlaceIcon : placeIcon;
+}
+
 function showRadiusCircle() {
   if (radiusCircle === null) {
     radiusCircle = L.circle(getSelectedLocation(), {
@@ -604,6 +610,23 @@ function createMarkerIcon(color, size) {
     iconSize: size,
     iconAnchor: [width / 2, height],
     popupAnchor: [0, -height],
+  });
+}
+
+function createHeartMarkerIcon(color) {
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="38" height="44" viewBox="0 0 38 44">
+      <path fill="${color}" stroke="#ffffff" stroke-width="3" d="M19 42S5 27 5 16a14 14 0 1 1 28 0c0 11-14 26-14 26Z"/>
+      <circle cx="19" cy="16" r="10" fill="#ffffff"/>
+      <path fill="${color}" d="M19 23.2 13 17.4a4 4 0 0 1 5.7-5.7l.3.3.3-.3a4 4 0 0 1 5.7 5.7L19 23.2Z"/>
+    </svg>
+  `;
+
+  return L.icon({
+    iconUrl: `data:image/svg+xml,${encodeURIComponent(svg)}`,
+    iconSize: [38, 44],
+    iconAnchor: [19, 42],
+    popupAnchor: [0, -38],
   });
 }
 
