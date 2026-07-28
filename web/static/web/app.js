@@ -1,4 +1,4 @@
-const shell = document.querySelector(".map-shell");
+const shell = document.querySelector(".map-shell, .app-shell");
 const form = document.querySelector("#search-form");
 const submitButton = form?.querySelector("button[type='submit']");
 const latInput = document.querySelector("#lat");
@@ -13,27 +13,32 @@ const resultsElement = document.querySelector("#results");
 const favoriteResultsElement = document.querySelector("#favorite-results");
 const historyResultsElement = document.querySelector("#history-results");
 const navToggleButton = document.querySelector(".rail-toggle");
+const mapElement = document.querySelector("#map");
 
 const navCollapsedStorageKey = "cityGuide.navCollapsed";
 const defaultCenter = [50.1109, 8.6821];
 const defaultCategory = "restaurant";
 const defaultRadius = "500";
-const selectedLocationIcon = createMarkerIcon("#c56a2c", [34, 48]);
-const placeIcon = createMarkerIcon("#126b5a", [28, 40]);
-const favoritePlaceIcon = createHeartMarkerIcon("#c56a2c");
-const map = L.map("map").setView(defaultCenter, 13);
-const resultMarkers = L.layerGroup().addTo(map);
+const selectedLocationIcon = mapElement ? createMarkerIcon("#c56a2c", [34, 48]) : null;
+const placeIcon = mapElement ? createMarkerIcon("#126b5a", [28, 40]) : null;
+const favoritePlaceIcon = mapElement ? createHeartMarkerIcon("#c56a2c") : null;
+const map = mapElement ? L.map("map").setView(defaultCenter, 13) : null;
+const resultMarkers = map ? L.layerGroup().addTo(map) : null;
 let selectedMarker = null;
 let radiusCircle = null;
 let currentSearchController = null;
 let favoriteOsmUids = new Set();
 
-L.tileLayer(shell.dataset.tileUrl, {
-  maxZoom: 19,
-  attribution: shell.dataset.tileAttribution,
-}).addTo(map);
+if (map !== null) {
+  L.tileLayer(shell.dataset.tileUrl, {
+    maxZoom: 19,
+    attribution: shell.dataset.tileAttribution,
+  }).addTo(map);
+}
 
-applyNavigationState(localStorage.getItem(navCollapsedStorageKey) === "true");
+if (shell !== null) {
+  applyNavigationState(localStorage.getItem(navCollapsedStorageKey) === "true");
+}
 
 if (form !== null) {
   setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
@@ -49,7 +54,7 @@ if (historyResultsElement !== null) {
   loadSearchHistory();
 }
 
-map.on("click", (event) => {
+map?.on("click", (event) => {
   if (form === null) {
     return;
   }
@@ -110,6 +115,10 @@ resetButton?.addEventListener("click", () => {
 });
 
 navToggleButton?.addEventListener("click", () => {
+  if (shell === null) {
+    return;
+  }
+
   const isCollapsed = shell.dataset.navCollapsed === "true";
   applyNavigationState(!isCollapsed);
   localStorage.setItem(navCollapsedStorageKey, String(!isCollapsed));
@@ -448,10 +457,16 @@ function setSelectedLocation(lat, lng, moveMap) {
 }
 
 function setStatus(message) {
-  statusElement.textContent = message;
+  if (statusElement !== null) {
+    statusElement.textContent = message;
+  }
 }
 
 function applyNavigationState(isCollapsed) {
+  if (shell === null) {
+    return;
+  }
+
   shell.dataset.navCollapsed = String(isCollapsed);
   navToggleButton?.setAttribute("aria-expanded", String(!isCollapsed));
   navToggleButton?.setAttribute(
@@ -564,6 +579,10 @@ function getPlaceMarkerIcon(place) {
 }
 
 function showRadiusCircle() {
+  if (map === null) {
+    return;
+  }
+
   if (radiusCircle === null) {
     radiusCircle = L.circle(getSelectedLocation(), {
       radius: Number(radiusInput.value),
@@ -588,6 +607,10 @@ function hideRadiusCircle() {
 }
 
 function updateRadiusCircle() {
+  if (radiusCircle === null) {
+    return;
+  }
+
   radiusCircle.setLatLng(getSelectedLocation());
   radiusCircle.setRadius(Number(radiusInput.value));
 }

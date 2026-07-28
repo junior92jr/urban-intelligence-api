@@ -60,8 +60,18 @@ button {
   overflow: hidden;
 }
 
+.app-shell {
+  display: grid;
+  grid-template-columns: 164px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
 .map-shell[data-nav-collapsed="true"] {
   grid-template-columns: 60px minmax(340px, 440px) minmax(0, 1fr);
+}
+
+.app-shell[data-nav-collapsed="true"] {
+  grid-template-columns: 60px minmax(0, 1fr);
 }
 
 .app-rail {
@@ -81,7 +91,8 @@ button {
     border-color 160ms ease;
 }
 
-.map-shell[data-nav-collapsed="true"] .app-rail {
+.map-shell[data-nav-collapsed="true"] .app-rail,
+.app-shell[data-nav-collapsed="true"] .app-rail {
   padding-right: 6px;
   padding-left: 6px;
 }
@@ -102,16 +113,28 @@ button {
   text-decoration: none;
 }
 
+.rail-spacer {
+  flex: 1;
+}
+
+.rail-form {
+  display: grid;
+  width: 100%;
+  margin: 0;
+}
+
 .rail-toggle {
   justify-content: center;
 }
 
-.map-shell[data-nav-collapsed="true"] .rail-link {
+.map-shell[data-nav-collapsed="true"] .rail-link,
+.app-shell[data-nav-collapsed="true"] .rail-link {
   justify-content: center;
   padding: 0;
 }
 
-.map-shell[data-nav-collapsed="true"] .rail-link span {
+.map-shell[data-nav-collapsed="true"] .rail-link span,
+.app-shell[data-nav-collapsed="true"] .rail-link span {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -147,11 +170,13 @@ button {
   display: none;
 }
 
-.map-shell[data-nav-collapsed="true"] .rail-toggle-icon--collapse {
+.map-shell[data-nav-collapsed="true"] .rail-toggle-icon--collapse,
+.app-shell[data-nav-collapsed="true"] .rail-toggle-icon--collapse {
   display: none;
 }
 
-.map-shell[data-nav-collapsed="true"] .rail-toggle-icon--expand {
+.map-shell[data-nav-collapsed="true"] .rail-toggle-icon--expand,
+.app-shell[data-nav-collapsed="true"] .rail-toggle-icon--expand {
   display: block;
 }
 
@@ -181,6 +206,11 @@ button {
   gap: 22px;
   min-height: 0;
   width: 100%;
+}
+
+.sidebar-footer {
+  display: grid;
+  margin-top: auto;
 }
 
 .app-header {
@@ -509,40 +539,57 @@ h2 {
   color: #a33a3a;
 }
 
-.profile-list {
-  display: grid;
-  gap: 12px;
-  margin: 0;
+.settings-page {
+  min-height: 100vh;
+  padding: clamp(28px, 5vw, 72px);
+  background:
+    linear-gradient(180deg, rgb(238 242 240 / 82%), rgb(220 230 223 / 84%)),
+    #dce6df;
 }
 
-.profile-list div {
+.settings-container {
   display: grid;
-  gap: 4px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--line);
+  gap: 28px;
+  width: min(100%, 1040px);
+  margin: 0 auto;
 }
 
-.profile-list dt {
+.settings-header {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 16px;
+  align-items: center;
+  padding: 10px 0 6px;
+}
+
+.settings-header p:last-child {
+  max-width: 58ch;
+  margin: 10px 0 0;
   color: var(--muted);
-  font-size: 0.78rem;
-  font-weight: 850;
-  text-transform: uppercase;
+  font-size: 1rem;
+  line-height: 1.55;
 }
 
-.profile-list dd {
-  margin: 0;
-  color: var(--ink);
-  font-weight: 750;
-}
-
-.profile-card {
+.settings-panel {
   display: grid;
-  gap: 18px;
-  padding: 24px;
+  gap: 24px;
+  padding: clamp(22px, 3vw, 34px);
   border: 1px solid var(--line);
   border-radius: 8px;
   background: var(--surface);
   box-shadow: var(--shadow);
+}
+
+.settings-section-header {
+  display: flex;
+  gap: 18px;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+
+.profile-form {
+  display: grid;
+  gap: 16px;
 }
 
 .results {
@@ -749,7 +796,15 @@ h2 {
     overflow: visible;
   }
 
+  .app-shell {
+    grid-template-columns: 1fr;
+  }
+
   .map-shell[data-nav-collapsed="true"] {
+    grid-template-columns: 1fr;
+  }
+
+  .app-shell[data-nav-collapsed="true"] {
     grid-template-columns: 1fr;
   }
 
@@ -763,6 +818,11 @@ h2 {
   }
 
   .map-shell[data-nav-collapsed="true"] .app-rail {
+    display: flex;
+    padding: 10px 14px;
+  }
+
+  .app-shell[data-nav-collapsed="true"] .app-rail {
     display: flex;
     padding: 10px 14px;
   }
@@ -807,6 +867,19 @@ h2 {
   .map-panel,
   #map {
     min-height: 62vh;
+  }
+
+  .settings-page {
+    min-height: auto;
+    padding: 20px;
+  }
+
+  .settings-container {
+    gap: 20px;
+  }
+
+  .settings-panel {
+    padding: 20px;
   }
 }
 

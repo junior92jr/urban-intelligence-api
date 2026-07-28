@@ -238,10 +238,17 @@ def test_profile_page_renders_for_authenticated_user(api_client: APIClient) -> N
 
     assert response.status_code == status.HTTP_200_OK
     assert b"profile-web@example.com" in response.content
-    assert b"map-shell" in response.content
-    assert b'id="map"' in response.content
-    assert b"data-tile-url=" in response.content
+    assert b"app-shell" in response.content
+    assert b"settings-page" in response.content
+    assert b"settings-panel" in response.content
+    assert b"profile-form" in response.content
     assert b"app-rail" in response.content
+    assert b"rail-form" in response.content
+    assert b"Sign out" in response.content
+    assert b'class="sidebar"' not in response.content
+    assert b"map-shell" not in response.content
+    assert b'id="map"' not in response.content
+    assert b"data-tile-url=" not in response.content
     assert b"auth-layout" not in response.content
 
 
@@ -301,8 +308,14 @@ def test_map_app_supports_anonymous_sidebar_without_search_form() -> None:
     app_js = APP_JS_PATH.read_text()
 
     assert "const submitButton = form?.querySelector" in app_js
+    assert 'document.querySelector(".map-shell, .app-shell")' in app_js
     assert "if (form !== null)" in app_js
     assert "form?.addEventListener" in app_js
+    assert (
+        'const map = mapElement ? L.map("map").setView(defaultCenter, 13) : null;'
+        in app_js
+    )
+    assert "if (shell !== null)" in app_js
 
 
 def test_map_app_supports_favorite_toggles() -> None:
