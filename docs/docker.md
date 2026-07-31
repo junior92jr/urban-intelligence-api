@@ -35,6 +35,13 @@ make docker-migrate
 make docker-up
 ```
 
+The Docker image includes the native GeoDjango stack:
+
+- GDAL
+- GEOS
+- PROJ
+- PostgreSQL/PostGIS client/runtime libraries
+
 Open:
 
 ```text
@@ -44,10 +51,19 @@ http://localhost:8000/
 Useful commands:
 
 ```bash
+make check
 make docker-test
 make docker-logs
 make docker-shell
 make docker-down
+```
+
+Run one-off commands inside the development `web` container:
+
+```bash
+make docker-manage createsuperuser
+make docker-manage showmigrations
+make docker-command pytest -v
 ```
 
 PostgreSQL and Redis are available to Django on the internal Docker network. Their host ports are not published by default, which avoids conflicts with local Postgres or Redis installations.

@@ -1,4 +1,4 @@
-.PHONY: nothing lint pyright mypy typecheck check test fix clean venv docker-config docker-up docker-down docker-build docker-migrate docker-test docker-logs docker-shell docker-prod-config docker-prod-check docker-prod-static docker-prod-migrate docker-prod-up docker-prod-down docker-prod-logs
+.PHONY: nothing lint pyright mypy typecheck check test fix clean venv docker-config docker-up docker-down docker-build docker-migrate docker-test docker-logs docker-shell docker-command docker-manage docker-prod-config docker-prod-check docker-prod-static docker-prod-migrate docker-prod-up docker-prod-down docker-prod-logs
 
 DOCKER_DEV_ENV ?= .env.docker
 DOCKER_PROD_ENV ?= .env.prod
@@ -17,17 +17,17 @@ lint:
 	uv run ruff check
 
 pyright:
-	uv run --frozen --all-groups pyright
+	$(DOCKER_DEV) run --rm web pyright
 
 mypy:
-	uv run --frozen --all-groups mypy --pretty .
+	$(DOCKER_DEV) run --rm web mypy --pretty .
 
 typecheck: pyright mypy
 
 check: lint typecheck
 
 test:
-	uv run --frozen --only-group dev pytest -v \
+	$(DOCKER_DEV) run --rm web pytest -v \
 		--cov-branch \
 		--cov-report=term-missing:skip-covered
 
@@ -67,13 +67,21 @@ docker-migrate:
 	$(DOCKER_DEV) run --rm web python manage.py migrate
 
 docker-test:
-	$(DOCKER_DEV) run --rm web pytest -v
+	$(DOCKER_DEV) run --rm web pytest -v \
+		--cov-branch \
+		--cov-report=term-missing:skip-covered
 
 docker-logs:
 	$(DOCKER_DEV) logs -f
 
 docker-shell:
 	$(DOCKER_DEV) run --rm web sh
+
+docker-command:
+	$(DOCKER_DEV) run --rm web $(filter-out $@,$(MAKECMDGOALS))
+
+docker-manage:
+	$(DOCKER_DEV) run --rm web python manage.py $(filter-out $@,$(MAKECMDGOALS))
 
 docker-prod-config:
 	$(DOCKER_PROD) config --quiet
@@ -95,3 +103,6 @@ docker-prod-down:
 
 docker-prod-logs:
 	$(DOCKER_PROD) logs -f
+
+%:
+	@:

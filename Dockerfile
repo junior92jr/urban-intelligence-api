@@ -16,6 +16,7 @@ RUN apt-get update \
         gdal-bin \
         libgeos-c1v5 \
         libpq5 \
+        proj-bin \
     && rm -rf /var/lib/apt/lists/*
 
 
@@ -26,6 +27,7 @@ RUN apt-get update \
         build-essential \
         libgdal-dev \
         libgeos-dev \
+        libproj-dev \
         libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 

@@ -36,6 +36,7 @@ make docker-up
 - [Docker](docs/docker.md)
 - [API Reference](docs/api.md)
 - [Web Interface](docs/web.md)
+- [Geospatial Data](docs/geospatial.md)
 
 ## Core Commands
 

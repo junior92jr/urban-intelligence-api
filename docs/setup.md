@@ -8,6 +8,14 @@ This project uses [uv](https://docs.astral.sh/uv/) for Python dependency and vir
 make venv
 ```
 
+The local virtual environment is mainly for local formatting and lightweight editing tools. GeoDjango commands, tests, and type checks run through Docker by default because the app uses PostGIS point fields.
+
+If you want to run full Django/GeoDjango commands directly on macOS, install the native geospatial libraries first:
+
+```bash
+brew install gdal geos proj
+```
+
 ## Environment
 
 Create a local `.env` file from the example:
@@ -78,6 +86,16 @@ REDIS_URL=redis://localhost:6379/0
 
 ## Run
 
+Docker is the recommended development runtime:
+
+```bash
+cp .env.docker.example .env.docker
+make docker-migrate
+make docker-up
+```
+
+For non-Docker local development, install GDAL/GEOS/PROJ first and then run:
+
 ```bash
 uv run python manage.py migrate
 uv run python manage.py runserver
@@ -103,10 +121,12 @@ make test
 make fix
 ```
 
-Run only the places tests:
+`make check` uses local Ruff checks, then runs type checks in Docker. `make test` runs the test suite in Docker against the Docker database.
+
+Run only the places tests in Docker:
 
 ```bash
-uv run pytest places/tests
+make docker-command pytest places/tests
 ```
 
 ## Account Emails
