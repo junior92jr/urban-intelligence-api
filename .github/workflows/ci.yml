@@ -12,10 +12,6 @@ jobs:
     name: Check and test
     runs-on: ubuntu-latest
 
-    env:
-      SECRET_KEY: django-insecure-ci-only
-      DATABASE_URL: sqlite:///db.sqlite3
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -34,10 +30,10 @@ jobs:
         run: make venv
 
       - name: Run checks
-        run: make check
+        run: make check DOCKER_DEV_ENV=.env.docker.example
 
       - name: Run tests
-        run: make test
+        run: make test DOCKER_DEV_ENV=.env.docker.example
 
       - name: Validate Docker Compose config
         run: |
