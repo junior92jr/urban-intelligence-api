@@ -596,6 +596,9 @@ h2 {
   display: grid;
   flex: 1;
   gap: 10px;
+  align-content: start;
+  align-items: start;
+  grid-auto-rows: max-content;
   margin: 0;
   padding: 0 2px 12px;
   list-style: none;
