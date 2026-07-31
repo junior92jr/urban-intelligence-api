@@ -1,7 +1,16 @@
 from typing import ClassVar, override
 
 from django.conf import settings
+from django.contrib.gis.db import models as gis_models
+from django.contrib.gis.geos import Point
+from django.contrib.postgres.indexes import GistIndex
 from django.db import models
+
+POINT_SRID = 4326
+
+
+def build_point(*, latitude: float, longitude: float) -> Point:
+    return Point(longitude, latitude, srid=POINT_SRID)
 
 
 class FavoritePlace(models.Model):
@@ -16,8 +25,7 @@ class FavoritePlace(models.Model):
     name = models.CharField(max_length=255)
     category = models.CharField(max_length=100)
     category_name = models.CharField(max_length=255)
-    latitude = models.FloatField()
-    longitude = models.FloatField()
+    location = gis_models.PointField(srid=POINT_SRID)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
@@ -27,11 +35,22 @@ class FavoritePlace(models.Model):
                 name="unique_favorite_place_per_user",
             ),
         ]
+        indexes: ClassVar[list[models.Index]] = [
+            GistIndex(fields=["location"], name="favorite_place_location_gist"),
+        ]
         ordering = ("-created_at",)
 
     @override
     def __str__(self) -> str:
         return f"{self.user} - {self.name}"
+
+    @property
+    def latitude(self) -> float:
+        return float(self.location.y)
+
+    @property
+    def longitude(self) -> float:
+        return float(self.location.x)
 
 
 class SearchHistory(models.Model):
@@ -40,16 +59,26 @@ class SearchHistory(models.Model):
         on_delete=models.CASCADE,
         related_name="place_searches",
     )
-    latitude = models.FloatField()
-    longitude = models.FloatField()
+    location = gis_models.PointField(srid=POINT_SRID)
     search_radius = models.PositiveIntegerField()
     category = models.CharField(max_length=100, blank=True)
     result_count = models.PositiveIntegerField()
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:
+        indexes: ClassVar[list[models.Index]] = [
+            GistIndex(fields=["location"], name="search_history_location_gist"),
+        ]
         ordering = ("-created_at",)
 
     @override
     def __str__(self) -> str:
         return f"{self.user} - {self.latitude}, {self.longitude}"
+
+    @property
+    def latitude(self) -> float:
+        return float(self.location.y)
+
+    @property
+    def longitude(self) -> float:
+        return float(self.location.x)

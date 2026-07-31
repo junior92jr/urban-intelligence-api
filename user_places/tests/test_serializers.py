@@ -34,3 +34,5 @@ def test_favorite_place_serializer_creates_user_favorite() -> None:
 
     assert favorite.user == user
     assert favorite.osm_uid == "osm-node-123"
+    assert favorite.latitude == 50.1109
+    assert favorite.longitude == 8.6821

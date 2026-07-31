@@ -1,5 +1,5 @@
 from accounts.models import User
-from user_places.models import SearchHistory
+from user_places.models import SearchHistory, build_point
 
 SEARCH_HISTORY_LIMIT = 50
 
@@ -15,8 +15,7 @@ def record_place_search(
 ) -> SearchHistory:
     history = SearchHistory.objects.create(
         user=user,
-        latitude=latitude,
-        longitude=longitude,
+        location=build_point(latitude=latitude, longitude=longitude),
         search_radius=search_radius,
         category=category,
         result_count=result_count,

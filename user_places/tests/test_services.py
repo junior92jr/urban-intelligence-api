@@ -26,6 +26,8 @@ def test_record_place_search_creates_history_entry() -> None:
     assert history.user == user
     assert history.category == "restaurant"
     assert history.result_count == 4
+    assert history.latitude == 50.1109
+    assert history.longitude == 8.6821
 
 
 def test_record_place_search_prunes_old_history_entries() -> None:

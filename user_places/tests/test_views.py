@@ -3,7 +3,7 @@ from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
-from user_places.models import FavoritePlace, SearchHistory
+from user_places.models import FavoritePlace, SearchHistory, build_point
 
 pytestmark = pytest.mark.django_db
 
@@ -24,6 +24,16 @@ def favorite_payload(osm_uid: str = "osm-node-123") -> dict[str, object]:
         "latitude": 50.1109,
         "longitude": 8.6821,
     }
+
+
+def favorite_model_payload(osm_uid: str = "osm-node-123") -> dict[str, object]:
+    payload = favorite_payload(osm_uid)
+    latitude = payload.pop("latitude")
+    longitude = payload.pop("longitude")
+    assert isinstance(latitude, float)
+    assert isinstance(longitude, float)
+    payload["location"] = build_point(latitude=latitude, longitude=longitude)
+    return payload
 
 
 def test_favorites_require_authentication(api_client: APIClient) -> None:
@@ -95,10 +105,10 @@ def test_list_favorite_places_returns_only_authenticated_user_places(
         password="N3arby-Places-Key-842!",
         is_active=True,
     )
-    FavoritePlace.objects.create(user=user, **favorite_payload("osm-node-123"))
+    FavoritePlace.objects.create(user=user, **favorite_model_payload("osm-node-123"))
     FavoritePlace.objects.create(
         user=other_user,
-        **favorite_payload("osm-node-456"),
+        **favorite_model_payload("osm-node-456"),
     )
     api_client.force_authenticate(user=user)
 
@@ -115,7 +125,7 @@ def test_delete_favorite_place(api_client: APIClient) -> None:
         password="N3arby-Places-Key-842!",
         is_active=True,
     )
-    FavoritePlace.objects.create(user=user, **favorite_payload("osm-node-123"))
+    FavoritePlace.objects.create(user=user, **favorite_model_payload("osm-node-123"))
     api_client.force_authenticate(user=user)
 
     response = api_client.delete("/api/v1/user-places/favorites/osm-node-123/")
@@ -139,16 +149,14 @@ def test_list_search_history_returns_only_authenticated_user_searches(
     )
     SearchHistory.objects.create(
         user=user,
-        latitude=50.1109,
-        longitude=8.6821,
+        location=build_point(latitude=50.1109, longitude=8.6821),
         search_radius=500,
         category="restaurant",
         result_count=3,
     )
     SearchHistory.objects.create(
         user=other_user,
-        latitude=51.0,
-        longitude=9.0,
+        location=build_point(latitude=51.0, longitude=9.0),
         search_radius=300,
         category="cafe",
         result_count=1,

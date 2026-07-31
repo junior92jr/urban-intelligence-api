@@ -102,6 +102,8 @@ INSTALLED_APPS = [
     "django.contrib.contenttypes",
     "django.contrib.sessions",
     "django.contrib.messages",
+    "django.contrib.gis",
+    "django.contrib.postgres",
     "django.contrib.staticfiles",
     "rest_framework",
     "rest_framework.authtoken",
