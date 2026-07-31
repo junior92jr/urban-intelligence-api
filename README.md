@@ -1,362 +1,66 @@
-# Location Advisor Backend
+# City Guide API
 
-This backend project is a REST API that provides touristic information for a frontend project.
-Main source of the information comes from OpenStreetMap through the Overpass API:
+City Guide is a Django API and small server-rendered web app for finding nearby places on a map. It uses OpenStreetMap data through the Overpass API, supports authenticated users, and includes favorites and search history.
 
-* https://www.openstreetmap.org/
-* https://overpass-api.de/
+The project is built as an API-first Django application, with a lightweight Django template UI for exploring the map without a separate frontend repository.
 
-It provides places for touristic destinations based on your current location.
+## Quick Start
 
-This API should provide dynamic information that will be displayed in a frontend project.
-
-## Usage
-
-This project is still in development but already provides functional endpoints ready to use:
-
-### How to authenticate
-
-Register a new account:
-```
-(POST) /api/v1/accounts/register/
-```
-Body Request:
-```
-{
-  "email": "user@example.com",
-  "password": "user_pass"
-}
-```
-Response:
-```
-{
-  "id": 1,
-  "email": "user@example.com",
-  "activation_token": "account-activation-token"
-}
-```
-
-Activate an account:
-```
-(POST) /api/v1/accounts/activate/
-```
-Body Request:
-```
-{
-  "token": "account-activation-token"
-}
-```
-
-Login:
-```
-(POST) /api/v1/accounts/login/
-```
-Body Request:
-```
-{
-  "email": "user@example.com",
-  "password": "user_pass"
-}
-```
-Response:
-```
-{
-  "token": "fbfd14c374618e78bc9bbe1f6a576489a94f61f7",
-  "token_type": "Bearer"
-}
-```
-
-Authenticated requests should send the token as:
-```
-Authorization: Bearer fbfd14c374618e78bc9bbe1f6a576489a94f61f7
-```
-
-Get the authenticated profile:
-```
-(GET) /api/v1/accounts/me/
-```
-
-Logout deletes the current bearer token:
-```
-(POST) /api/v1/accounts/logout/
-```
-
-Create a password reset token:
-```
-(POST) /api/v1/accounts/forgot-password/
-```
-Body Request:
-```
-{
-  "email": "user@example.com"
-}
-```
-
-Reset a password:
-```
-(POST) /api/v1/accounts/reset-password/
-```
-Body Request:
-```
-{
-  "token": "password-reset-token",
-  "password": "new_user_pass"
-}
-```
-
-Account activation and password reset tokens are stored hashed, returned once, and consumed on use. This API does not send confirmation or password reset emails.
-
-### How to use the web interface
-
-Rendered web pages are handled by the `web` app:
-
-```
-(GET) /maps/
-(GET) /favorites/
-(GET) /history/
-(GET) /login/
-(GET) /register/
-(GET) /registration-sent/
-(GET) /activate/?token=<activation-token>
-(GET) /forgot-password/
-(GET) /reset-password/
-(GET) /profile/
-```
-
-The activation link activates the account, signs the user in, and redirects to the map. The map page redirects anonymous users to the login page. Place search starts only after authentication.
-
-### How to use the location service
-
-Get places near a location:
-```
-(GET) /api/v1/places/?lat=50.1101038&lng=8.6771587
-```
-
-The places endpoint requires authentication. Categories remain public so the UI can prepare filters before search.
-
-When no category is provided, the API searches only categories marked for default search.
-
-The default search radius is `500` meters. Search radius values can be between `1` and `3000` meters.
-
-Get places within a custom radius in meters:
-```
-(GET) /api/v1/places/?lat=50.1101038&lng=8.6771587&search_radius=250
-```
-
-Get known categories available for filtering:
-```
-(GET) /api/v1/categories/
-```
-
-Filter places by a known category slug:
-```
-(GET) /api/v1/places/?lat=50.1101038&lng=8.6771587&category=parking
-```
-
-Save an authenticated user's favorite place:
-```
-(POST) /api/v1/user-places/favorites/
-```
-
-List saved favorite places:
-```
-(GET) /api/v1/user-places/favorites/
-```
-
-Remove a saved favorite place:
-```
-(DELETE) /api/v1/user-places/favorites/<osm_uid>/
-```
-
-List recent authenticated place searches:
-```
-(GET) /api/v1/user-places/search-history/
-```
-
-Use the map interface:
-```
-(GET) /maps/
-```
-
-Example category response:
-```json
-[
-  {
-    "slug": "parking",
-    "name": "Parking"
-  }
-]
-```
-
-Example places response:
-```json
-{
-  "places": [
-    {
-      "osm_id": 331124761,
-      "osm_type": "node",
-      "name": "Heiliger Ludgerus",
-      "latitude": 51.9322712,
-      "longitude": 6.9442418,
-      "category": "wayside-shrine",
-      "category_name": "Wayside Shrine",
-      "osm_uid": "osm-node-331124761"
-    }
-  ]
-}
-```
-
-
-## Configure the project
-
-This project uses [uv](https://docs.astral.sh/uv/) for Python dependency and virtual environment management.
-
-### Clone the project
-
-First verify your SSH Keys on github configuration
-then if you dont have a key that points to your computer follow this tutorial:
-
-* https://docs.github.com/de/developers/overview/managing-deploy-keys
-
-```
-$ git clone git@github.com:junior92jr/location-advisor-backend.git
-```
-
-### Install dependencies
-
-From the project root, sync the environment:
+Local Django with SQLite:
 
 ```bash
+cp .env.example .env
 make venv
-```
-
-### Setting up environment variables
-
-Create a `.env` file in the project root, next to `manage.py`.
-
-Required variables:
-
-```env
-SECRET_KEY=django-insecure-local-dev-change-me
-DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
-CSRF_TRUSTED_ORIGINS=http://localhost:8000,http://127.0.0.1:8000
-DATABASE_URL=sqlite:///db.sqlite3
-CACHE_LOCATION=.cache
-STATIC_ROOT=staticfiles
-OPEN_STREET_MAP_OVERPASS_URL=https://overpass-api.de/api/interpreter
-OPEN_STREET_MAP_USER_AGENT=city-guide-api-demo
-OPEN_STREET_MAP_TIMEOUT_IN_SECS=20
-OPEN_STREET_MAP_MAX_RETRIES=2
-MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
-MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
-EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
-EMAIL_HOST=
-EMAIL_PORT=587
-EMAIL_HOST_USER=
-EMAIL_HOST_PASSWORD=
-EMAIL_USE_TLS=True
-DEFAULT_FROM_EMAIL=City Guide <noreply@localhost>
-CACHE_TIMEOUT_IN_SECS=86400
-```
-
-Use a real `SECRET_KEY` outside local development.
-
-Supported `DATABASE_URL` examples:
-
-```env
-DATABASE_URL=sqlite:///db.sqlite3
-DATABASE_URL=postgres://user:password@localhost:5432/city_guide
-```
-
-### Local dev: map tiles
-
-The map UI uses Leaflet with Django templates and static files. No Node or frontend build step is required.
-
-For local development, the default tile URL uses OpenStreetMap public tiles:
-
-```env
-MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
-MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
-```
-
-For production traffic, configure a proper tile provider in `MAP_TILE_URL` and update `MAP_TILE_ATTRIBUTION`.
-
-### Local dev: account emails
-
-The default email backend prints activation and password reset emails in the terminal where `runserver` is running.
-
-For Gmail SMTP in production, configure:
-
-```env
-EMAIL_BACKEND=django.core.mail.backends.smtp.EmailBackend
-EMAIL_HOST=smtp.gmail.com
-EMAIL_PORT=587
-EMAIL_HOST_USER=your-address@gmail.com
-EMAIL_HOST_PASSWORD=your-google-app-password
-EMAIL_USE_TLS=True
-DEFAULT_FROM_EMAIL=City Guide <your-address@gmail.com>
-```
-
-Gmail requires an app password for SMTP when two-step verification is enabled.
-
-# Running the project
-## Run the project
-
-Once you have everything ok, you can run the project.
-
-```bash
-make check
-
 uv run python manage.py migrate
-
 uv run python manage.py runserver
 ```
 
-For deployment-style static collection, run:
+Open:
 
-```bash
-uv run python manage.py collectstatic --noinput
+```text
+http://127.0.0.1:8000/
 ```
 
-## Run tests
-
-Tests are written with pytest.
+Docker development with PostgreSQL/PostGIS and Redis:
 
 ```bash
-make test
+cp .env.docker.example .env.docker
+make docker-build
+make docker-migrate
+make docker-up
 ```
 
-Run only the places tests:
+## Documentation
 
-```bash
-uv run pytest places/tests
-```
+- [Local Setup](docs/setup.md)
+- [Docker](docs/docker.md)
+- [API Reference](docs/api.md)
+- [Web Interface](docs/web.md)
 
-Run formatters and automatic lint fixes:
-
-```bash
-make fix
-```
-
-Run linting and type checks:
+## Core Commands
 
 ```bash
 make check
+make test
+make fix
 ```
 
-# Build Documentation
+Useful Docker commands:
 
-Sphinx is configured to build a user friendly site for code documentation.
-
-To build this files run
-
-```
-(city_guide) $ cd docs
-(city_guide) $ make html
+```bash
+make docker-config
+make docker-test
+make docker-logs
+make docker-down
 ```
 
-They will be build in docs/build/html/ with index.html as the main page.
-It can also be accessed from the admin site in the top navigation.
+## Services
 
-Note: Docstrings ready for Documentation but adding the library is missing.
+- Django 6 REST API
+- Django template web UI
+- PostgreSQL/PostGIS for Docker development and production
+- Redis cache backend when `REDIS_URL` is configured
+- OpenStreetMap Overpass API for place search
+- Leaflet for the map UI
+
+Production map traffic should use a dedicated tile provider configured with `MAP_TILE_URL` and `MAP_TILE_ATTRIBUTION`. The default OpenStreetMap tile URL is only suitable for local development.
