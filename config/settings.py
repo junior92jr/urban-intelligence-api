@@ -12,7 +12,12 @@ env = environ.Env(
     ALLOWED_HOSTS=(list, []),
     CSRF_TRUSTED_ORIGINS=(list, []),
     CACHE_LOCATION=(str, str(BASE_DIR / ".cache")),
+    REDIS_URL=(str, ""),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
+    STATICFILES_STORAGE_BACKEND=(
+        str,
+        "django.contrib.staticfiles.storage.StaticFilesStorage",
+    ),
     DATABASE_URL=(str, f"sqlite:///{BASE_DIR / 'db.sqlite3'}"),
     OPEN_STREET_MAP_OVERPASS_URL=(
         str,
@@ -40,6 +45,14 @@ env = environ.Env(
     EMAIL_USE_TLS=(bool, True),
     DEFAULT_FROM_EMAIL=(str, "City Guide <noreply@localhost>"),
     CACHE_TIMEOUT_IN_SECS=(int, 86400),
+    SECURE_SSL_REDIRECT=(bool, False),
+    SESSION_COOKIE_SECURE=(bool, False),
+    CSRF_COOKIE_SECURE=(bool, False),
+    SECURE_HSTS_SECONDS=(int, 0),
+    SECURE_HSTS_INCLUDE_SUBDOMAINS=(bool, False),
+    SECURE_HSTS_PRELOAD=(bool, False),
+    USE_X_FORWARDED_HOST=(bool, False),
+    SECURE_PROXY_SSL_HEADER=(bool, False),
 )
 
 env_file = BASE_DIR / ".env"
@@ -56,13 +69,34 @@ ALLOWED_HOSTS = env("ALLOWED_HOSTS")
 
 CSRF_TRUSTED_ORIGINS = env("CSRF_TRUSTED_ORIGINS")
 
+SECURE_SSL_REDIRECT = env("SECURE_SSL_REDIRECT")
+
+SESSION_COOKIE_SECURE = env("SESSION_COOKIE_SECURE")
+
+CSRF_COOKIE_SECURE = env("CSRF_COOKIE_SECURE")
+
+SECURE_HSTS_SECONDS = env("SECURE_HSTS_SECONDS")
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = env("SECURE_HSTS_INCLUDE_SUBDOMAINS")
+
+SECURE_HSTS_PRELOAD = env("SECURE_HSTS_PRELOAD")
+
+USE_X_FORWARDED_HOST = env("USE_X_FORWARDED_HOST")
+
+SECURE_PROXY_SSL_HEADER = None
+if env("SECURE_PROXY_SSL_HEADER"):
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
 CACHE_LOCATION = Path(str(env("CACHE_LOCATION")))
 if not CACHE_LOCATION.is_absolute():
     CACHE_LOCATION = BASE_DIR / CACHE_LOCATION
 
+REDIS_URL = env("REDIS_URL")
+
 
 # Applications
 INSTALLED_APPS = [
+    "config.apps.ConfigAppConfig",
     "django.contrib.admin",
     "django.contrib.auth",
     "django.contrib.contenttypes",
@@ -120,12 +154,24 @@ DATABASES = {
 
 
 # Cache
-CACHES = {
-    "default": {
-        "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
-        "LOCATION": CACHE_LOCATION,
-    },
-}
+if REDIS_URL:
+    CACHES = {
+        "default": {
+            "BACKEND": "django_redis.cache.RedisCache",
+            "LOCATION": REDIS_URL,
+            "OPTIONS": {
+                "CLIENT_CLASS": "django_redis.client.DefaultClient",
+            },
+            "KEY_PREFIX": "city-guide",
+        },
+    }
+else:
+    CACHES = {
+        "default": {
+            "BACKEND": "django.core.cache.backends.filebased.FileBasedCache",
+            "LOCATION": CACHE_LOCATION,
+        },
+    }
 
 
 # Password validation
@@ -158,7 +204,7 @@ USE_TZ = True
 
 
 # Static files
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 
 STATIC_ROOT = Path(str(env("STATIC_ROOT")))
 if not STATIC_ROOT.is_absolute():
@@ -169,7 +215,7 @@ STORAGES = {
         "BACKEND": "django.core.files.storage.FileSystemStorage",
     },
     "staticfiles": {
-        "BACKEND": ("django.contrib.staticfiles.storage.StaticFilesStorage"),
+        "BACKEND": env("STATICFILES_STORAGE_BACKEND"),
     },
 }
 

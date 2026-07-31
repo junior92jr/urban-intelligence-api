@@ -1,0 +1,15 @@
+.cache
+.coverage
+.coverage.*
+.DS_Store
+.env
+.env.*
+.git
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.venv
+__pycache__
+db.sqlite3
+htmlcov
+staticfiles
