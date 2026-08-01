@@ -13,6 +13,7 @@ env = environ.Env(
     CSRF_TRUSTED_ORIGINS=(list, []),
     CACHE_LOCATION=(str, str(BASE_DIR / ".cache")),
     REDIS_URL=(str, ""),
+    CELERY_BROKER_URL=(str, ""),
     STATIC_ROOT=(str, str(BASE_DIR / "staticfiles")),
     STATICFILES_STORAGE_BACKEND=(
         str,
@@ -23,9 +24,10 @@ env = environ.Env(
         str,
         "https://overpass-api.de/api/interpreter",
     ),
+    OPEN_STREET_MAP_OVERPASS_URLS=(list, []),
     OPEN_STREET_MAP_USER_AGENT=(str, "city-guide-api-demo"),
     OPEN_STREET_MAP_TIMEOUT_IN_SECS=(float, 20.0),
-    OPEN_STREET_MAP_MAX_RETRIES=(int, 2),
+    OPEN_STREET_MAP_MAX_RETRIES=(int, 3),
     MAP_TILE_URL=(
         str,
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -246,6 +248,10 @@ ACCOUNT_PASSWORD_RESET_TOKEN_TTL_IN_HOURS = 1
 # External services
 OPEN_STREET_MAP_OVERPASS_URL = env("OPEN_STREET_MAP_OVERPASS_URL")
 
+OPEN_STREET_MAP_OVERPASS_URLS = env("OPEN_STREET_MAP_OVERPASS_URLS") or [
+    OPEN_STREET_MAP_OVERPASS_URL
+]
+
 OPEN_STREET_MAP_USER_AGENT = env("OPEN_STREET_MAP_USER_AGENT")
 
 OPEN_STREET_MAP_TIMEOUT_IN_SECS = env("OPEN_STREET_MAP_TIMEOUT_IN_SECS")
@@ -257,6 +263,18 @@ MAP_TILE_URL = env("MAP_TILE_URL")
 MAP_TILE_ATTRIBUTION = env("MAP_TILE_ATTRIBUTION")
 
 CACHE_TIMEOUT_IN_SECS = env("CACHE_TIMEOUT_IN_SECS")
+
+
+# Celery
+CELERY_BROKER_URL = env("CELERY_BROKER_URL") or REDIS_URL
+
+CELERY_TASK_IGNORE_RESULT = True
+
+CELERY_TASK_TRACK_STARTED = True
+
+CELERY_TASK_TIME_LIMIT = 120
+
+CELERY_TASK_SOFT_TIME_LIMIT = 90
 
 
 # Email

@@ -16,6 +16,14 @@ services:
       retries: 3
       start_period: 30s
 
+  worker:
+    build:
+      target: development
+    env_file:
+      - ${DJANGO_ENV_FILE:-.env.docker}
+    volumes:
+      - .:/app
+
   db:
     env_file:
       - ${DJANGO_ENV_FILE:-.env.docker}

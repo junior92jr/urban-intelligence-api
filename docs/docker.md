@@ -25,7 +25,7 @@ Service-specific configuration lives under `docker/`.
 
 ## Development
 
-Docker development runs Django with PostgreSQL/PostGIS and Redis:
+Docker development runs Django with PostgreSQL/PostGIS, Redis, and a Celery worker:
 
 ```bash
 cp .env.docker.example .env.docker
@@ -71,6 +71,7 @@ The development env file uses:
 ```env
 DATABASE_URL=postgis://city_guide:city_guide@db:5432/city_guide
 REDIS_URL=redis://redis:6379/0
+CELERY_BROKER_URL=redis://redis:6379/0
 ```
 
 You can point Docker commands at another env file when needed:
@@ -134,8 +135,9 @@ The production compose stack uses:
 
 - `nginx`: public HTTP entrypoint and static file serving
 - `web`: Gunicorn running Django
+- `worker`: Celery worker for background place discovery
 - `db`: PostgreSQL with the PostGIS extension available
-- `redis`: Redis cache backend
+- `redis`: Redis cache backend and Celery broker
 
 Production startup does not run migrations or collect static files inside every web container. Run those lifecycle steps explicitly so scaling the web service does not repeat database or static file operations.
 

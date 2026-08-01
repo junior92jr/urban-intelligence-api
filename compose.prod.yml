@@ -17,6 +17,14 @@ services:
     restart: unless-stopped
     stop_grace_period: 45s
 
+  worker:
+    build:
+      target: production
+    env_file:
+      - ${DJANGO_ENV_FILE:-.env.prod}
+    restart: unless-stopped
+    stop_grace_period: 45s
+
   nginx:
     image: nginx:1.27-alpine
     ports:

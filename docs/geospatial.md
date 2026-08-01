@@ -21,6 +21,12 @@ SRID=4326;POINT(longitude latitude)
 
 Both columns have Django-declared GiST indexes, so later features can query efficiently by distance, containment, and overlap.
 
+## Discovered Places
+
+The `places` app stores OpenStreetMap results in `DiscoveredPlace` with a PostGIS `location` point. `AreaScan` tracks background Celery refreshes for a user/service area/radius/category group.
+
+The map reads from the persisted nearby-places endpoint first, then requests a background scan and polls until the scan finishes. This keeps the UI responsive when Overpass is slow or temporarily unavailable.
+
 On PostgreSQL/PostGIS, `location` is a `geometry(Point,4326)` column. The Docker database image enables PostGIS during database initialization through `docker/postgres/initdb/01-enable-postgis.sql`.
 
 GeoDjango requires native GDAL/GEOS/PROJ libraries. Docker includes them, and macOS developers can install them with:

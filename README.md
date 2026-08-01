@@ -1,6 +1,6 @@
 # City Guide API
 
-City Guide is a Django API and small server-rendered web app for finding nearby places on a map. It uses OpenStreetMap data through the Overpass API, supports authenticated users, and includes favorites and search history.
+City Guide is a Django API and small server-rendered web app for finding nearby places on a map. It uses OpenStreetMap data through the Overpass API, persists discovered places in PostGIS, supports authenticated users, and includes favorites and search history.
 
 The project is built as an API-first Django application, with a lightweight Django template UI for exploring the map without a separate frontend repository.
 
@@ -58,8 +58,9 @@ make down
 - Django 6 REST API
 - Django template web UI
 - PostgreSQL/PostGIS for Docker development and production
-- Redis cache backend when `REDIS_URL` is configured
-- OpenStreetMap Overpass API for place search
+- Redis cache backend and Celery broker when `REDIS_URL` is configured
+- Celery worker for background place discovery
+- OpenStreetMap Overpass API for background place refreshes
 - Leaflet for the map UI
 
 Production map traffic should use a dedicated tile provider configured with `MAP_TILE_URL` and `MAP_TILE_ATTRIBUTION`. The default OpenStreetMap tile URL is only suitable for local development.

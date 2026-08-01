@@ -10,6 +10,18 @@ services:
     networks:
       - backend
 
+  worker:
+    build:
+      context: .
+    command: celery -A config worker --loglevel=info
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
   db:
     build:
       context: ./docker/postgres
