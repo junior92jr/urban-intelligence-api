@@ -1,6 +1,7 @@
-from typing import ClassVar, override
+from typing import ClassVar, Self, override
 
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
+from django.contrib.gis.db import models as gis_models
 from django.db import models
 from django.utils import timezone
 
@@ -31,6 +32,56 @@ class User(AbstractBaseUser, PermissionsMixin):
     def full_name(self) -> str:
         name = f"{self.first_name} {self.last_name}".strip()
         return name or self.email
+
+
+class UserProfile(models.Model):
+    user = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name="profile",
+    )
+    service_area = models.ForeignKey(
+        "geo.ServiceArea",
+        on_delete=models.PROTECT,
+        related_name="user_profiles",
+        null=True,
+        blank=True,
+    )
+    default_location = gis_models.PointField(srid=4326, null=True, blank=True)
+    location_sharing_enabled = models.BooleanField(default=False)
+    preferred_radius = models.PositiveIntegerField(default=500)
+    onboarding_completed_at = models.DateTimeField(null=True, blank=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("user__email",)
+
+    @classmethod
+    def get_for_user(cls, user: AbstractBaseUser) -> Self:
+        profile, _ = cls.objects.get_or_create(user=user)
+        return profile
+
+    @override
+    def __str__(self) -> str:
+        return f"{self.user.email} profile"
+
+    @property
+    def default_latitude(self) -> float | None:
+        if self.default_location is None:
+            return None
+
+        return float(self.default_location.y)
+
+    @property
+    def default_longitude(self) -> float | None:
+        if self.default_location is None:
+            return None
+
+        return float(self.default_location.x)
+
+    @property
+    def has_completed_onboarding(self) -> bool:
+        return self.onboarding_completed_at is not None
 
 
 class AccountToken(models.Model):

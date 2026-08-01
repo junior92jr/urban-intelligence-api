@@ -1,7 +1,7 @@
 import pytest
 from rest_framework.authtoken.models import Token
 
-from accounts.models import AccountToken, User
+from accounts.models import AccountToken, User, UserProfile
 from accounts.serializers import (
     ActivationSerializer,
     ForgotPasswordSerializer,
@@ -15,6 +15,7 @@ from accounts.services.tokens import (
     activation_token_lifetime,
     create_account_token,
 )
+from geo.models import ServiceArea, build_point
 
 pytestmark = pytest.mark.django_db
 
@@ -105,6 +106,14 @@ def test_profile_serializer_returns_public_profile_fields() -> None:
         first_name="Profile",
         last_name="Owner",
     )
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    UserProfile.objects.create(
+        user=user,
+        service_area=service_area,
+        default_location=build_point(latitude=50.1109, longitude=8.6821),
+        location_sharing_enabled=True,
+        preferred_radius=700,
+    )
 
     assert ProfileSerializer(user).data == {
         "id": user.pk,
@@ -112,6 +121,28 @@ def test_profile_serializer_returns_public_profile_fields() -> None:
         "first_name": "Profile",
         "last_name": "Owner",
         "full_name": "Profile Owner",
+        "service_area": {
+            "id": service_area.pk,
+            "slug": "frankfurt-am-main",
+            "name": "Frankfurt am Main",
+            "area_type": "city",
+            "country": {
+                "id": service_area.country.pk,
+                "code": "DE",
+                "name": "Germany",
+                "default_language": "de",
+                "timezone": "Europe/Berlin",
+                "currency": "EUR",
+            },
+            "center": {"lat": 50.1109, "lng": 8.6821},
+            "population": 773068,
+            "timezone": "Europe/Berlin",
+        },
+        "default_latitude": 50.1109,
+        "default_longitude": 8.6821,
+        "location_sharing_enabled": True,
+        "preferred_radius": 700,
+        "onboarding_completed": False,
     }
 
 

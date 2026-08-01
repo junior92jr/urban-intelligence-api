@@ -280,6 +280,22 @@ h2 {
   font-weight: 750;
 }
 
+.check-field {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 750;
+  line-height: 1.45;
+}
+
+.check-field input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
 .field input,
 .field select {
   width: 100%;
@@ -592,6 +608,12 @@ h2 {
   gap: 16px;
 }
 
+.settings-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
 .results {
   display: grid;
   flex: 1;
@@ -892,7 +914,8 @@ h2 {
   }
 
   .field-grid,
-  .actions {
+  .actions,
+  .settings-actions {
     grid-template-columns: 1fr;
   }
 

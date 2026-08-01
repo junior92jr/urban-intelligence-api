@@ -25,6 +25,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("", include("web.urls", namespace="web")),
     path("api/v1/accounts/", include("accounts.urls", namespace="accounts")),
+    path("api/v1/geo/", include("geo.urls", namespace="geo")),
     path("api/v1/user-places/", include("user_places.urls", namespace="user_places")),
     path("api/v1/", include("places.urls", namespace="services")),
 ]

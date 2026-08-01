@@ -21,15 +21,20 @@
       </header>
 
       <section class="settings-panel" aria-labelledby="profile-form-title">
+        {% include "web/includes/messages.html" %}
         <div class="settings-section-header">
           <div>
             <p class="eyebrow">Account</p>
             <h2 id="profile-form-title">Personal information</h2>
-            <p class="status">These details identify your saved places and search history.</p>
+            <p class="status">These details identify your saved places, search history, and starting map area.</p>
           </div>
         </div>
 
-        <form class="profile-form">
+        <form class="profile-form location-form" method="post">
+          {% csrf_token %}
+          {{ form.non_field_errors }}
+          {{ form.default_latitude }}
+          {{ form.default_longitude }}
           <label class="field">
             <span>Email</span>
             <input type="email" value="{{ request.user.email }}" readonly>
@@ -37,12 +42,50 @@
           <div class="field-grid">
             <label class="field">
               <span>First name</span>
-              <input type="text" value="{{ request.user.first_name }}" readonly>
+              {{ form.first_name }}
+              {{ form.first_name.errors }}
             </label>
             <label class="field">
               <span>Last name</span>
-              <input type="text" value="{{ request.user.last_name }}" readonly>
+              {{ form.last_name }}
+              {{ form.last_name.errors }}
             </label>
+          </div>
+
+          <div class="settings-section-header">
+            <div>
+              <p class="eyebrow">Location</p>
+              <h2>Map preferences</h2>
+              <p class="status">Browser location still requires your browser permission when you choose to share it.</p>
+            </div>
+          </div>
+
+          <div class="field-grid">
+            <label class="field">
+              <span>Country</span>
+              <input type="text" value="Germany" readonly>
+            </label>
+            <label class="field">
+              <span>City</span>
+              {{ form.service_area }}
+              {{ form.service_area.errors }}
+            </label>
+          </div>
+
+          <label class="field">
+            <span>Preferred radius</span>
+            {{ form.preferred_radius }}
+            {{ form.preferred_radius.errors }}
+          </label>
+
+          <label class="check-field">
+            {{ form.location_sharing_enabled }}
+            <span>Use my saved location to start area discovery.</span>
+          </label>
+
+          <div class="settings-actions">
+            <button class="secondary-button location-button" type="button" id="profile-locate-button">Use current location</button>
+            <button class="primary-button" type="submit">Save profile</button>
           </div>
         </form>
       </section>

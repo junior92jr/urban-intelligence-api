@@ -7,6 +7,7 @@ from .views import (
     HistoryView,
     LoginView,
     MapView,
+    OnboardingView,
     ProfileView,
     RegisterView,
     RegistrationSentView,
@@ -21,6 +22,7 @@ urlpatterns = [
     path("favorites/", FavoritesView.as_view(), name="favorites"),
     path("history/", HistoryView.as_view(), name="history"),
     path("login/", LoginView.as_view(), name="login"),
+    path("onboarding/", OnboardingView.as_view(), name="onboarding"),
     path("logout/", logout_view, name="logout"),
     path("register/", RegisterView.as_view(), name="register"),
     path(

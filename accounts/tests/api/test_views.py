@@ -180,6 +180,12 @@ def test_profile_returns_authenticated_user(api_client: APIClient) -> None:
         "first_name": "Map",
         "last_name": "Reader",
         "full_name": "Map Reader",
+        "service_area": None,
+        "default_latitude": None,
+        "default_longitude": None,
+        "location_sharing_enabled": False,
+        "preferred_radius": 500,
+        "onboarding_completed": False,
     }
 
 

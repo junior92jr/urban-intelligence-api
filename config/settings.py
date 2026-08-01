@@ -108,6 +108,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "rest_framework.authtoken",
     "accounts",
+    "geo",
     "web",
     "places",
     "user_places",

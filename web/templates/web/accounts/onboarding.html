@@ -1,0 +1,55 @@
+{% extends "web/base.html" %}
+{% load static %}
+
+{% block title %}Set Up Location - City Guide{% endblock %}
+
+{% block body %}
+<main class="auth-page">
+  <div class="auth-layout">
+    <section class="auth-hero" aria-labelledby="onboarding-title">
+      <div class="brand-mark" aria-hidden="true">CG</div>
+      <p class="eyebrow">City Guide</p>
+      <h1 id="onboarding-title">Set up your map</h1>
+      <p>Save a starting area and preferred radius so City Guide can open around the places you care about.</p>
+    </section>
+    <section class="auth-panel" aria-label="Location setup form">
+      {% include "web/includes/messages.html" %}
+      <form class="auth-form location-form" method="post">
+        {% csrf_token %}
+        {{ form.non_field_errors }}
+        {{ form.default_latitude }}
+        {{ form.default_longitude }}
+
+        <label class="field">
+          <span>Country</span>
+          <input type="text" value="Germany" readonly>
+        </label>
+
+        <label class="field">
+          <span>City</span>
+          {{ form.service_area }}
+          {{ form.service_area.errors }}
+        </label>
+
+        <label class="field">
+          <span>Preferred radius</span>
+          {{ form.preferred_radius }}
+          {{ form.preferred_radius.errors }}
+        </label>
+
+        <label class="check-field">
+          {{ form.location_sharing_enabled }}
+          <span>Use my saved location to start area discovery.</span>
+        </label>
+
+        <button class="secondary-button location-button" type="button" id="profile-locate-button">Use current location</button>
+        <button class="primary-button" type="submit">Continue to map</button>
+      </form>
+    </section>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+  <script src="{% static 'web/app.js' %}" defer></script>
+{% endblock %}

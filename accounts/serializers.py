@@ -3,7 +3,7 @@ from typing import Any, cast, override
 from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
-from accounts.models import User
+from accounts.models import User, UserProfile
 from accounts.services import (
     activate_account,
     create_password_reset_token,
@@ -11,12 +11,57 @@ from accounts.services import (
     register_user,
     reset_password,
 )
+from geo.serializers import ServiceAreaSerializer
 
 
 class ProfileSerializer(serializers.ModelSerializer[User]):
+    service_area = serializers.SerializerMethodField()
+    default_latitude = serializers.SerializerMethodField()
+    default_longitude = serializers.SerializerMethodField()
+    location_sharing_enabled = serializers.SerializerMethodField()
+    preferred_radius = serializers.SerializerMethodField()
+    onboarding_completed = serializers.SerializerMethodField()
+
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         model = User
-        fields = ("id", "email", "first_name", "last_name", "full_name")
+        fields = (
+            "id",
+            "email",
+            "first_name",
+            "last_name",
+            "full_name",
+            "service_area",
+            "default_latitude",
+            "default_longitude",
+            "location_sharing_enabled",
+            "preferred_radius",
+            "onboarding_completed",
+        )
+
+    def get_profile(self, user: User) -> UserProfile:
+        return UserProfile.get_for_user(user)
+
+    def get_service_area(self, user: User) -> dict[str, object] | None:
+        service_area = self.get_profile(user).service_area
+        if service_area is None:
+            return None
+
+        return dict(ServiceAreaSerializer(service_area).data)
+
+    def get_default_longitude(self, user: User) -> float | None:
+        return self.get_profile(user).default_longitude
+
+    def get_default_latitude(self, user: User) -> float | None:
+        return self.get_profile(user).default_latitude
+
+    def get_location_sharing_enabled(self, user: User) -> bool:
+        return self.get_profile(user).location_sharing_enabled
+
+    def get_preferred_radius(self, user: User) -> int:
+        return self.get_profile(user).preferred_radius
+
+    def get_onboarding_completed(self, user: User) -> bool:
+        return self.get_profile(user).has_completed_onboarding
 
 
 class RegistrationSerializer(serializers.Serializer[dict[str, Any]]):

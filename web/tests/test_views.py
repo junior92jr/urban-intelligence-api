@@ -9,8 +9,9 @@ from django.urls import reverse
 from rest_framework import status
 from rest_framework.test import APIClient
 
-from accounts.models import User
+from accounts.models import User, UserProfile
 from accounts.services.registration import register_user
+from geo.models import ServiceArea
 
 APP_JS_PATH = Path(__file__).resolve().parents[1] / "static/web/app.js"
 STYLES_PATH = Path(__file__).resolve().parents[1] / "static/web/styles.css"
@@ -52,6 +53,29 @@ def test_map_page_renders_search_sidebar_for_authenticated_user(
     assert b"app-rail" in response.content
     assert b"Sign in to search" not in response.content
     assert b"unpkg.com" not in response.content
+
+
+def test_map_page_uses_saved_location_preferences(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="web-map-location@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+    )
+    UserProfile.objects.create(
+        user=user,
+        service_area=ServiceArea.objects.get(slug="frankfurt-am-main"),
+        preferred_radius=800,
+    )
+    api_client.force_login(user)
+
+    response = api_client.get(reverse("web:map"))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert b'data-default-lat="50.1109"' in response.content
+    assert b'data-default-lng="8.6821"' in response.content
+    assert b'data-default-radius="800"' in response.content
+    assert b'value="800"' in response.content
+    assert b"800 m" in response.content
 
 
 def test_profile_page_requires_authentication(api_client: APIClient) -> None:
@@ -96,6 +120,31 @@ def test_account_pages_render(
     assert title in response.content
     assert b"auth-layout" in response.content
     assert b"auth-panel" in response.content
+
+
+def test_onboarding_page_requires_authentication(api_client: APIClient) -> None:
+    response = api_client.get(reverse("web:onboarding"))
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"].startswith(str(reverse("web:login")))
+
+
+def test_onboarding_page_renders_for_authenticated_user(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="onboarding-render-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+    )
+    api_client.force_login(user)
+
+    response = api_client.get(reverse("web:onboarding"))
+
+    assert response.status_code == status.HTTP_200_OK
+    assert b"Set up your map" in response.content
+    assert b"auth-layout" in response.content
+    assert b'id="profile-locate-button"' in response.content
+    assert b"Germany" in response.content
+    assert b"Frankfurt am Main" in response.content
 
 
 @override_settings(EMAIL_BACKEND="django.core.mail.backends.locmem.EmailBackend")
@@ -161,9 +210,9 @@ def test_register_activation_email_link_activates_account(
     user = User.objects.get(email="register-link-web@example.com")
 
     assert response.status_code == status.HTTP_302_FOUND
-    assert response["Location"] == reverse("web:map")
+    assert response["Location"] == reverse("web:onboarding")
     assert user.is_active is True
-    assert api_client.get(reverse("web:map")).status_code == status.HTTP_200_OK
+    assert api_client.get(reverse("web:onboarding")).status_code == status.HTTP_200_OK
 
 
 def test_activate_page_activates_account_from_email_link(
@@ -181,9 +230,9 @@ def test_activate_page_activates_account_from_email_link(
     user.refresh_from_db()
 
     assert response.status_code == status.HTTP_302_FOUND
-    assert response["Location"] == reverse("web:map")
+    assert response["Location"] == reverse("web:onboarding")
     assert user.is_active is True
-    assert api_client.get(reverse("web:map")).status_code == status.HTTP_200_OK
+    assert api_client.get(reverse("web:onboarding")).status_code == status.HTTP_200_OK
 
 
 def test_activate_page_redirects_missing_token_to_login(
@@ -252,6 +301,90 @@ def test_profile_page_renders_for_authenticated_user(api_client: APIClient) -> N
     assert b"auth-layout" not in response.content
 
 
+def test_onboarding_page_saves_location_preferences(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="onboarding-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+    )
+    api_client.force_login(user)
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+
+    response = api_client.post(
+        reverse("web:onboarding"),
+        {
+            "service_area": str(service_area.pk),
+            "default_latitude": "50.1109",
+            "default_longitude": "8.6821",
+            "location_sharing_enabled": "on",
+            "preferred_radius": "700",
+        },
+    )
+    profile = UserProfile.objects.get(user=user)
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == reverse("web:map")
+    assert profile.service_area == service_area
+    assert profile.default_latitude == 50.1109
+    assert profile.default_longitude == 8.6821
+    assert profile.location_sharing_enabled is True
+    assert profile.preferred_radius == 700
+    assert profile.onboarding_completed_at is not None
+
+
+def test_login_redirects_new_user_to_onboarding(api_client: APIClient) -> None:
+    User.objects.create_user(
+        email="login-onboarding-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+    )
+
+    response = api_client.post(
+        reverse("web:login"),
+        {
+            "username": "login-onboarding-web@example.com",
+            "password": "N3arby-Places-Key-842!",
+        },
+    )
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == reverse("web:onboarding")
+
+
+def test_profile_page_updates_location_preferences(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="profile-update-web@example.com",
+        password="N3arby-Places-Key-842!",
+        first_name="Old",
+        last_name="Name",
+        is_active=True,
+    )
+    api_client.force_login(user)
+    service_area = ServiceArea.objects.get(slug="berlin")
+
+    response = api_client.post(
+        reverse("web:profile"),
+        {
+            "first_name": "New",
+            "last_name": "Name",
+            "service_area": str(service_area.pk),
+            "default_latitude": "52.52",
+            "default_longitude": "13.405",
+            "location_sharing_enabled": "on",
+            "preferred_radius": "900",
+        },
+    )
+    user.refresh_from_db()
+    profile = UserProfile.objects.get(user=user)
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == reverse("web:profile")
+    assert user.first_name == "New"
+    assert profile.service_area == service_area
+    assert profile.default_latitude == 52.52
+    assert profile.default_longitude == 13.405
+
+
 def test_favorites_page_renders_for_authenticated_user(api_client: APIClient) -> None:
     user = User.objects.create_user(
         email="favorites-web@example.com",
@@ -311,6 +444,7 @@ def test_map_app_supports_anonymous_sidebar_without_search_form() -> None:
     assert 'document.querySelector(".map-shell, .app-shell")' in app_js
     assert "if (form !== null)" in app_js
     assert "form?.addEventListener" in app_js
+    assert "const defaultCenter = getDefaultCenter();" in app_js
     assert (
         'const map = mapElement ? L.map("map").setView(defaultCenter, 13) : null;'
         in app_js
@@ -333,6 +467,8 @@ def test_map_app_supports_favorite_toggles() -> None:
     assert "applyNavigationState" in app_js
     assert "loadSearchHistory" in app_js
     assert "restoreSearchFromUrl" in app_js
+    assert "profileLocateButton" in app_js
+    assert "locationSharingInput.checked = true;" in app_js
 
 
 def test_collapsed_navigation_keeps_toggle_visible() -> None:

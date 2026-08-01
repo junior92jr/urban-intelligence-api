@@ -5,19 +5,22 @@ from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.models import AbstractBaseUser
 from django.core.exceptions import ValidationError
-from django.http import HttpRequest, HttpResponse
+from django.http import HttpRequest, HttpResponse, HttpResponseBase
 from django.shortcuts import redirect
 from django.urls import reverse_lazy
 from django.views import View
 from django.views.decorators.http import require_POST
 from django.views.generic import FormView, TemplateView
 
+from accounts.models import UserProfile
 from accounts.services.registration import activate_account
 from web.emails import send_activation_email, send_password_reset_email
 from web.forms import (
     EmailAuthenticationForm,
     ForgotPasswordForm,
+    LocationPreferencesForm,
     RegistrationForm,
     ResetPasswordForm,
     add_form_error,
@@ -38,8 +41,20 @@ class MapView(LoginRequiredMixin, TemplateView):
     @override
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
+        user = self.request.user
+        assert isinstance(user, AbstractBaseUser)
+        profile = UserProfile.get_for_user(user)
+        default_latitude = profile.default_latitude
+        default_longitude = profile.default_longitude
+        if profile.default_location is None and profile.service_area is not None:
+            default_latitude = profile.service_area.latitude
+            default_longitude = profile.service_area.longitude
+
         context.update(get_map_tile_context())
         context["active_nav"] = "map"
+        context["profile"] = profile
+        context["default_latitude"] = default_latitude
+        context["default_longitude"] = default_longitude
 
         return context
 
@@ -57,11 +72,18 @@ class LoginView(FormView):  # type: ignore[type-arg]
 
     @override
     def form_valid(self, form: EmailAuthenticationForm) -> HttpResponse:
-        login(self.request, form.get_user())
+        user = form.get_user()
+        login(self.request, user)
         return super().form_valid(form)
 
     @override
     def get_success_url(self) -> str:
+        user = self.request.user
+        if user.is_authenticated:
+            assert isinstance(user, AbstractBaseUser)
+            if not UserProfile.get_for_user(user).has_completed_onboarding:
+                return str(reverse_lazy("web:onboarding"))
+
         return self.request.POST.get("next") or str(self.success_url)
 
 
@@ -103,7 +125,7 @@ class ActivateView(View):
 
         login(request, user)
         messages.success(request, "Account activated.")
-        return redirect("web:map")
+        return redirect("web:onboarding")
 
 
 class ForgotPasswordView(FormView):  # type: ignore[type-arg]
@@ -153,9 +175,54 @@ class ResetPasswordView(FormView):  # type: ignore[type-arg]
         return super().form_valid(form)
 
 
-class ProfileView(LoginRequiredMixin, TemplateView):
+class OnboardingView(LoginRequiredMixin, FormView):  # type: ignore[type-arg]
+    form_class = LocationPreferencesForm
+    template_name = "web/accounts/onboarding.html"
+    login_url = reverse_lazy("web:login")
+    success_url = reverse_lazy("web:map")
+
+    @override
+    def dispatch(
+        self,
+        request: HttpRequest,
+        *args: object,
+        **kwargs: object,
+    ) -> HttpResponseBase:
+        if not request.user.is_authenticated:
+            return super().dispatch(request, *args, **kwargs)
+
+        user = request.user
+        assert isinstance(user, AbstractBaseUser)
+        if UserProfile.get_for_user(user).has_completed_onboarding:
+            return redirect("web:map")
+
+        return super().dispatch(request, *args, **kwargs)
+
+    @override
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        kwargs["complete_onboarding"] = True
+        return kwargs
+
+    @override
+    def form_valid(self, form: LocationPreferencesForm) -> HttpResponse:
+        form.save()
+        messages.success(self.request, "Your map preferences are ready.")
+        return super().form_valid(form)
+
+
+class ProfileView(LoginRequiredMixin, FormView):  # type: ignore[type-arg]
+    form_class = LocationPreferencesForm
     template_name = "web/accounts/profile.html"
     login_url = reverse_lazy("web:login")
+    success_url = reverse_lazy("web:profile")
+
+    @override
+    def get_form_kwargs(self) -> dict[str, Any]:
+        kwargs = super().get_form_kwargs()
+        kwargs["user"] = self.request.user
+        return kwargs
 
     @override
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
@@ -163,6 +230,12 @@ class ProfileView(LoginRequiredMixin, TemplateView):
         context["active_nav"] = "profile"
 
         return context
+
+    @override
+    def form_valid(self, form: LocationPreferencesForm) -> HttpResponse:
+        form.save()
+        messages.success(self.request, "Profile updated.")
+        return super().form_valid(form)
 
 
 class FavoritesView(LoginRequiredMixin, TemplateView):

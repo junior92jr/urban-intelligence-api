@@ -14,11 +14,16 @@ const favoriteResultsElement = document.querySelector("#favorite-results");
 const historyResultsElement = document.querySelector("#history-results");
 const navToggleButton = document.querySelector(".rail-toggle");
 const mapElement = document.querySelector("#map");
+const profileLocateButton = document.querySelector("#profile-locate-button");
+const defaultLatInput = document.querySelector("#id_default_latitude");
+const defaultLngInput = document.querySelector("#id_default_longitude");
+const locationSharingInput = document.querySelector("#id_location_sharing_enabled");
 
 const navCollapsedStorageKey = "cityGuide.navCollapsed";
-const defaultCenter = [50.1109, 8.6821];
+const fallbackCenter = [50.1109, 8.6821];
+const defaultCenter = getDefaultCenter();
 const defaultCategory = "restaurant";
-const defaultRadius = "500";
+const defaultRadius = shell?.dataset.defaultRadius ?? "500";
 const selectedLocationIcon = mapElement ? createMarkerIcon("#c56a2c", [34, 48]) : null;
 const placeIcon = mapElement ? createMarkerIcon("#126b5a", [28, 40]) : null;
 const favoritePlaceIcon = mapElement ? createHeartMarkerIcon("#c56a2c") : null;
@@ -112,6 +117,33 @@ locateButton?.addEventListener("click", () => {
 
 resetButton?.addEventListener("click", () => {
   resetSearch();
+});
+
+profileLocateButton?.addEventListener("click", () => {
+  if (!navigator.geolocation) {
+    setStatus("Location is not available in this browser.");
+    return;
+  }
+
+  profileLocateButton.disabled = true;
+  profileLocateButton.textContent = "Finding location...";
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      const { latitude, longitude } = position.coords;
+      defaultLatInput.value = latitude.toFixed(7);
+      defaultLngInput.value = longitude.toFixed(7);
+      locationSharingInput.checked = true;
+      profileLocateButton.textContent = "Location saved";
+      profileLocateButton.disabled = false;
+    },
+    () => {
+      profileLocateButton.textContent = "Use current location";
+      profileLocateButton.disabled = false;
+      setStatus("Could not access your location.");
+    },
+    { enableHighAccuracy: true, timeout: 10000 },
+  );
 });
 
 navToggleButton?.addEventListener("click", () => {
@@ -427,6 +459,20 @@ function resetSearch() {
   setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
   map.setView(defaultCenter, 13);
   setStatus("");
+}
+
+function getDefaultCenter() {
+  if (shell === null) {
+    return fallbackCenter;
+  }
+
+  const lat = Number(shell.dataset.defaultLat);
+  const lng = Number(shell.dataset.defaultLng);
+  if (Number.isFinite(lat) && Number.isFinite(lng)) {
+    return [lat, lng];
+  }
+
+  return fallbackCenter;
 }
 
 function setSelectedLocation(lat, lng, moveMap) {

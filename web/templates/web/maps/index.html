@@ -18,6 +18,9 @@
       data-map-url="{% url 'web:map' %}"
       data-tile-url="{{ map_tile_url }}"
       data-tile-attribution="{{ map_tile_attribution }}"
+      data-default-lat="{{ default_latitude|default_if_none:'' }}"
+      data-default-lng="{{ default_longitude|default_if_none:'' }}"
+      data-default-radius="{{ profile.preferred_radius }}"
     >
       {% include "web/includes/app_nav.html" %}
       <section class="sidebar" aria-label="Search controls and results">
@@ -61,12 +64,12 @@
                 min="100"
                 max="3000"
                 step="100"
-                value="500"
+                value="{{ profile.preferred_radius }}"
               >
             </label>
 
             <div class="radius-row">
-              <output id="radius-output" for="search-radius">500 m</output>
+              <output id="radius-output" for="search-radius">{{ profile.preferred_radius }} m</output>
             </div>
 
             <div class="actions">
