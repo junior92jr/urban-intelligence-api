@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     ActivateView,
+    DataImportsView,
     FavoritesView,
     ForgotPasswordView,
     HistoryView,
@@ -21,6 +22,7 @@ urlpatterns = [
     path("maps/", MapView.as_view(), name="map"),
     path("favorites/", FavoritesView.as_view(), name="favorites"),
     path("history/", HistoryView.as_view(), name="history"),
+    path("data-imports/", DataImportsView.as_view(), name="data_imports"),
     path("login/", LoginView.as_view(), name="login"),
     path("onboarding/", OnboardingView.as_view(), name="onboarding"),
     path("logout/", logout_view, name="logout"),

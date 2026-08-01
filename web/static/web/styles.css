@@ -63,7 +63,8 @@ button {
 .app-shell {
   display: grid;
   grid-template-columns: 164px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .map-shell[data-nav-collapsed="true"] {
@@ -556,11 +557,13 @@ h2 {
 }
 
 .settings-page {
-  min-height: 100vh;
+  min-height: 0;
   padding: clamp(28px, 5vw, 72px);
   background:
     linear-gradient(180deg, rgb(238 242 240 / 82%), rgb(220 230 223 / 84%)),
     #dce6df;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .settings-container {
@@ -612,6 +615,92 @@ h2 {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+.imports-panel {
+  min-width: 0;
+  min-height: 0;
+}
+
+.import-list {
+  display: grid;
+  gap: 12px;
+  max-height: min(520px, 52vh);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
+.import-item {
+  min-width: 0;
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface-muted);
+}
+
+.import-item strong {
+  display: block;
+  margin-bottom: 4px;
+}
+
+.import-item span,
+.import-item p {
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+.import-item p {
+  margin: 0;
+}
+
+.import-item--empty {
+  color: var(--muted);
+}
+
+.import-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 12px;
+  align-items: center;
+}
+
+.status-pill {
+  display: inline-flex;
+  min-height: 26px;
+  align-items: center;
+  padding: 0 9px;
+  border-radius: 999px;
+  background: var(--line);
+  color: var(--ink);
+  font-size: 0.78rem;
+  font-weight: 850;
+}
+
+.status-pill--pending {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.status-pill--running {
+  background: #e8f4ff;
+  color: #27658f;
+}
+
+.status-pill--completed {
+  background: #e9f7ef;
+  color: var(--primary);
+}
+
+.status-pill--failed {
+  background: #fff0f0;
+  color: #a33a3a;
 }
 
 .results {
@@ -823,6 +912,9 @@ h2 {
 
   .app-shell {
     grid-template-columns: 1fr;
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
 
   .map-shell[data-nav-collapsed="true"] {
@@ -897,6 +989,7 @@ h2 {
   .settings-page {
     min-height: auto;
     padding: 20px;
+    overflow: visible;
   }
 
   .settings-container {

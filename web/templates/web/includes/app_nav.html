@@ -39,6 +39,17 @@
     </svg>
     <span>History</span>
   </a>
+  {% if request.user.is_staff %}
+    <a class="rail-link {% if active_nav == 'data_imports' %}rail-link--active{% endif %}" href="{% url 'web:data_imports' %}" aria-label="Data imports" title="Data imports">
+      <svg aria-hidden="true" viewBox="0 0 24 24">
+        <path d="M12 3v12"></path>
+        <path d="m7 10 5 5 5-5"></path>
+        <path d="M5 21h14"></path>
+        <path d="M5 17h14"></path>
+      </svg>
+      <span>Data imports</span>
+    </a>
+  {% endif %}
   <a class="rail-link {% if active_nav == 'profile' %}rail-link--active{% endif %}" href="{% url 'web:profile' %}" aria-label="Profile" title="Profile">
     <svg aria-hidden="true" viewBox="0 0 24 24">
       <path d="M20 21a8 8 0 0 0-16 0"></path>

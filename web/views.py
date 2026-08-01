@@ -4,7 +4,7 @@ from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
-from django.contrib.auth.mixins import LoginRequiredMixin
+from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from django.contrib.auth.models import AbstractBaseUser
 from django.core.exceptions import ValidationError
 from django.http import HttpRequest, HttpResponse, HttpResponseBase
@@ -14,10 +14,14 @@ from django.views import View
 from django.views.decorators.http import require_POST
 from django.views.generic import FormView, TemplateView
 
-from accounts.models import UserProfile
+from accounts.models import User, UserProfile
 from accounts.services.registration import activate_account
+from places.models import DataImport
+from places.services.discovery import create_area_scan
+from places.tasks import run_area_scan, run_data_import
 from web.emails import send_activation_email, send_password_reset_email
 from web.forms import (
+    DataImportForm,
     EmailAuthenticationForm,
     ForgotPasswordForm,
     LocationPreferencesForm,
@@ -32,6 +36,31 @@ def get_map_tile_context() -> dict[str, str]:
         "map_tile_url": settings.MAP_TILE_URL,
         "map_tile_attribution": settings.MAP_TILE_ATTRIBUTION,
     }
+
+
+def enqueue_profile_area_scan(
+    *,
+    profile: UserProfile,
+    user_id: int,
+) -> None:
+    if profile.service_area is None:
+        return
+
+    latitude = profile.default_latitude
+    longitude = profile.default_longitude
+    if latitude is None or longitude is None:
+        latitude = profile.service_area.latitude
+        longitude = profile.service_area.longitude
+
+    scan = create_area_scan(
+        service_area=profile.service_area,
+        latitude=latitude,
+        longitude=longitude,
+        radius=profile.preferred_radius,
+        user_id=user_id,
+    )
+    assert scan.pk is not None
+    cast(Any, run_area_scan).delay(scan.pk)
 
 
 class MapView(LoginRequiredMixin, TemplateView):
@@ -207,7 +236,9 @@ class OnboardingView(LoginRequiredMixin, FormView):  # type: ignore[type-arg]
 
     @override
     def form_valid(self, form: LocationPreferencesForm) -> HttpResponse:
-        form.save()
+        profile = form.save()
+        assert self.request.user.pk is not None
+        enqueue_profile_area_scan(profile=profile, user_id=self.request.user.pk)
         messages.success(self.request, "Your map preferences are ready.")
         return super().form_valid(form)
 
@@ -233,7 +264,9 @@ class ProfileView(LoginRequiredMixin, FormView):  # type: ignore[type-arg]
 
     @override
     def form_valid(self, form: LocationPreferencesForm) -> HttpResponse:
-        form.save()
+        profile = form.save()
+        assert self.request.user.pk is not None
+        enqueue_profile_area_scan(profile=profile, user_id=self.request.user.pk)
         messages.success(self.request, "Profile updated.")
         return super().form_valid(form)
 
@@ -262,6 +295,43 @@ class HistoryView(LoginRequiredMixin, TemplateView):
         context["active_nav"] = "history"
 
         return context
+
+
+class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, FormView):  # type: ignore[type-arg]
+    form_class = DataImportForm
+    template_name = "web/data_imports/index.html"
+    login_url = reverse_lazy("web:login")
+    success_url = reverse_lazy("web:data_imports")
+
+    @override
+    def test_func(self) -> bool:
+        user = self.request.user
+        return isinstance(user, User) and user.is_staff
+
+    @override
+    def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
+        context = super().get_context_data(**kwargs)
+        context["active_nav"] = "data_imports"
+        context["data_imports"] = DataImport.objects.select_related(
+            "service_area",
+            "service_area__country",
+            "requested_by",
+        )[:20]
+
+        return context
+
+    @override
+    def form_valid(self, form: DataImportForm) -> HttpResponse:
+        data_import = form.save(commit=False)
+        user = self.request.user
+        assert isinstance(user, User)
+        data_import.requested_by = user
+        data_import.save()
+        assert data_import.pk is not None
+        cast(Any, run_data_import).delay(data_import.pk)
+        messages.success(self.request, "OpenStreetMap data import started.")
+
+        return super().form_valid(form)
 
 
 @require_POST
