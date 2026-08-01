@@ -90,8 +90,8 @@ Docker is the recommended development runtime:
 
 ```bash
 cp .env.docker.example .env.docker
-make docker-migrate
-make docker-up
+make migrate
+make up
 ```
 
 For non-Docker local development, install GDAL/GEOS/PROJ first and then run:
@@ -126,7 +126,7 @@ make fix
 Run only the places tests in Docker:
 
 ```bash
-make docker-command pytest places/tests
+DJANGO_ENV_FILE=.env.docker docker compose --env-file .env.docker run --rm web pytest places/tests
 ```
 
 ## Account Emails

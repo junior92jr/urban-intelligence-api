@@ -29,10 +29,8 @@ Docker development runs Django with PostgreSQL/PostGIS and Redis:
 
 ```bash
 cp .env.docker.example .env.docker
-make docker-config
-make docker-build
-make docker-migrate
-make docker-up
+make migrate
+make up
 ```
 
 The Docker image includes the native GeoDjango stack:
@@ -52,18 +50,18 @@ Useful commands:
 
 ```bash
 make check
-make docker-test
-make docker-logs
-make docker-shell
-make docker-down
+make test
+make logs
+make shell
+make down
 ```
 
 Run one-off commands inside the development `web` container:
 
 ```bash
-make docker-manage createsuperuser
-make docker-manage showmigrations
-make docker-command pytest -v
+make migrations
+make manage createsuperuser
+make manage showmigrations
 ```
 
 PostgreSQL and Redis are available to Django on the internal Docker network. Their host ports are not published by default, which avoids conflicts with local Postgres or Redis installations.
@@ -78,7 +76,13 @@ REDIS_URL=redis://redis:6379/0
 You can point Docker commands at another env file when needed:
 
 ```bash
-make docker-config DOCKER_DEV_ENV=.env.docker.example
+make check DOCKER_ENV=.env.docker.example
+```
+
+Validate the development Compose config directly when needed:
+
+```bash
+DJANGO_ENV_FILE=.env.docker docker compose --env-file .env.docker config --quiet
 ```
 
 ## Production Shape
@@ -106,24 +110,24 @@ Edit `.env.prod` with real values first. At minimum, set:
 Run production-style checks and release tasks explicitly:
 
 ```bash
-make docker-prod-config
-make docker-prod-check
-make docker-prod-static
-make docker-prod-migrate
-make docker-prod-up
+DJANGO_ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod config --quiet
+DJANGO_ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod run --rm web python manage.py check --deploy
+DJANGO_ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod run --rm web python manage.py collectstatic --noinput
+DJANGO_ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod run --rm web python manage.py migrate --noinput
+DJANGO_ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod up --build -d
 ```
 
-Production Docker commands read `.env.prod` by default. To validate against another env file:
+To validate against another env file:
 
 ```bash
-make docker-prod-config DOCKER_PROD_ENV=.env.prod.example
+DJANGO_ENV_FILE=.env.prod.example docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod.example config --quiet
 ```
 
 Useful production commands:
 
 ```bash
-make docker-prod-logs
-make docker-prod-down
+DJANGO_ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod logs -f
+DJANGO_ENV_FILE=.env.prod docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod down
 ```
 
 The production compose stack uses:
@@ -133,7 +137,7 @@ The production compose stack uses:
 - `db`: PostgreSQL with the PostGIS extension available
 - `redis`: Redis cache backend
 
-Production startup does not run migrations or collect static files inside every web container. Those lifecycle steps are separate Make targets so scaling the web service does not repeat database or static file operations.
+Production startup does not run migrations or collect static files inside every web container. Run those lifecycle steps explicitly so scaling the web service does not repeat database or static file operations.
 
 Static files use Django's manifest storage when `DEBUG=False`, so Nginx can serve collected assets with long-lived immutable cache headers.
 

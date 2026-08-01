@@ -1,9 +1,7 @@
-.PHONY: nothing lint pyright mypy typecheck check test fix clean venv docker-config docker-up docker-down docker-build docker-migrate docker-test docker-logs docker-shell docker-command docker-manage docker-prod-config docker-prod-check docker-prod-static docker-prod-migrate docker-prod-up docker-prod-down docker-prod-logs
+.PHONY: nothing venv up down logs shell manage migrate migrations fix check test
 
-DOCKER_DEV_ENV ?= .env.docker
-DOCKER_PROD_ENV ?= .env.prod
-DOCKER_DEV = DJANGO_ENV_FILE=$(DOCKER_DEV_ENV) docker compose --env-file $(DOCKER_DEV_ENV)
-DOCKER_PROD = DJANGO_ENV_FILE=$(DOCKER_PROD_ENV) docker compose -f compose.yml -f compose.prod.yml --env-file $(DOCKER_PROD_ENV)
+DOCKER_ENV ?= .env.docker
+DOCKER = DJANGO_ENV_FILE=$(DOCKER_ENV) docker compose --env-file $(DOCKER_ENV)
 
 nothing:
 	@echo "Please specify a target"
@@ -11,98 +9,42 @@ nothing:
 venv:
 	uv sync --frozen
 
-lint:
-	uv lock --check
-	uv run ruff format --check
-	uv run ruff check
+up:
+	$(DOCKER) up --build
 
-pyright:
-	$(DOCKER_DEV) run --rm web pyright
+down:
+	$(DOCKER) down
 
-mypy:
-	$(DOCKER_DEV) run --rm web mypy --pretty .
+logs:
+	$(DOCKER) logs -f
 
-typecheck: pyright mypy
+shell:
+	$(DOCKER) run --rm web sh
 
-check: lint typecheck
+manage:
+	$(DOCKER) run --rm web python manage.py $(filter-out $@,$(MAKECMDGOALS))
 
-test:
-	$(DOCKER_DEV) run --rm web pytest -v \
-		--cov-branch \
-		--cov-report=term-missing:skip-covered
+migrate:
+	$(DOCKER) run --rm web python manage.py migrate
+
+migrations:
+	$(DOCKER) run --rm web python manage.py makemigrations
 
 fix:
 	uv run ruff check --fix
 	uv run ruff format
 
-clean:
-	find . -type d -name __pycache__ | xargs -n1 rm -rf
-	rm -rf \
-		.venv \
-		.pytest_cache \
-		.ruff_cache \
-		.mypy_cache \
-		.coverage* \
-		coverage.xml \
-		.hypothesis \
-		.testmondata
+check:
+	uv lock --check
+	uv run ruff format --check
+	uv run ruff check
+	$(DOCKER) run --rm web pyright
+	$(DOCKER) run --rm web mypy --pretty .
 
-upgrade:
-	uv lock --upgrade
-	uv sync
-
-docker-config:
-	$(DOCKER_DEV) config --quiet
-
-docker-build:
-	$(DOCKER_DEV) build
-
-docker-up:
-	$(DOCKER_DEV) up --build
-
-docker-down:
-	$(DOCKER_DEV) down
-
-docker-migrate:
-	$(DOCKER_DEV) run --rm web python manage.py migrate
-
-docker-test:
-	$(DOCKER_DEV) run --rm web pytest -v \
+test:
+	$(DOCKER) run --rm web pytest -v \
 		--cov-branch \
 		--cov-report=term-missing:skip-covered
-
-docker-logs:
-	$(DOCKER_DEV) logs -f
-
-docker-shell:
-	$(DOCKER_DEV) run --rm web sh
-
-docker-command:
-	$(DOCKER_DEV) run --rm web $(filter-out $@,$(MAKECMDGOALS))
-
-docker-manage:
-	$(DOCKER_DEV) run --rm web python manage.py $(filter-out $@,$(MAKECMDGOALS))
-
-docker-prod-config:
-	$(DOCKER_PROD) config --quiet
-
-docker-prod-check:
-	$(DOCKER_PROD) run --rm web python manage.py check --deploy
-
-docker-prod-static:
-	$(DOCKER_PROD) run --rm web python manage.py collectstatic --noinput
-
-docker-prod-migrate:
-	$(DOCKER_PROD) run --rm web python manage.py migrate --noinput
-
-docker-prod-up:
-	$(DOCKER_PROD) up --build -d
-
-docker-prod-down:
-	$(DOCKER_PROD) down
-
-docker-prod-logs:
-	$(DOCKER_PROD) logs -f
 
 %:
 	@:

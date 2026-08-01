@@ -25,9 +25,8 @@ Docker development with PostgreSQL/PostGIS and Redis:
 
 ```bash
 cp .env.docker.example .env.docker
-make docker-build
-make docker-migrate
-make docker-up
+make migrate
+make up
 ```
 
 ## Documentation
@@ -49,10 +48,9 @@ make fix
 Useful Docker commands:
 
 ```bash
-make docker-config
-make docker-test
-make docker-logs
-make docker-down
+make migrate
+make logs
+make down
 ```
 
 ## Services
