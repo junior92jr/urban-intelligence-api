@@ -113,6 +113,7 @@ def test_profile_serializer_returns_public_profile_fields() -> None:
         default_location=build_point(latitude=50.1109, longitude=8.6821),
         location_sharing_enabled=True,
         preferred_radius=700,
+        realtime_refresh_enabled=False,
     )
 
     assert ProfileSerializer(user).data == {
@@ -142,6 +143,7 @@ def test_profile_serializer_returns_public_profile_fields() -> None:
         "default_longitude": 8.6821,
         "location_sharing_enabled": True,
         "preferred_radius": 700,
+        "realtime_refresh_enabled": False,
         "onboarding_completed": False,
     }
 

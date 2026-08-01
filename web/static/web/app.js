@@ -24,6 +24,7 @@ const fallbackCenter = [50.1109, 8.6821];
 const defaultCenter = getDefaultCenter();
 const defaultCategory = "restaurant";
 const defaultRadius = shell?.dataset.defaultRadius ?? "500";
+const realtimeRefreshEnabled = shell?.dataset.realtimeRefreshEnabled === "true";
 const selectedLocationIcon = mapElement ? createMarkerIcon("#c56a2c", [34, 48]) : null;
 const placeIcon = mapElement ? createMarkerIcon("#126b5a", [28, 40]) : null;
 const favoritePlaceIcon = mapElement ? createHeartMarkerIcon("#c56a2c") : null;
@@ -32,6 +33,8 @@ const resultMarkers = map ? L.layerGroup().addTo(map) : null;
 let selectedMarker = null;
 let radiusCircle = null;
 let currentSearchController = null;
+let currentRefreshController = null;
+let currentSearchKey = "";
 let favoriteOsmUids = new Set();
 
 if (map !== null) {
@@ -47,7 +50,11 @@ if (shell !== null) {
 
 if (form !== null) {
   setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
-  loadCategories().then(restoreSearchFromUrl);
+  loadCategories().then(() => {
+    if (!restoreSearchFromUrl()) {
+      searchPlaces();
+    }
+  });
   loadFavorites();
 }
 
@@ -108,7 +115,6 @@ locateButton?.addEventListener("click", () => {
     (position) => {
       const { latitude, longitude } = position.coords;
       setSelectedLocation(latitude, longitude, true);
-      searchPlaces();
     },
     () => setStatus("Could not access your location."),
     { enableHighAccuracy: true, timeout: 10000 },
@@ -225,31 +231,23 @@ async function loadSearchHistory() {
 
 async function searchPlaces() {
   currentSearchController?.abort();
+  currentRefreshController?.abort();
   currentSearchController = new AbortController();
   const controller = currentSearchController;
-  const params = new URLSearchParams({
-    lat: latInput.value,
-    lng: lngInput.value,
-    search_radius: radiusInput.value,
-  });
+  const params = buildSearchParams();
+  const searchKey = params.toString();
+  currentSearchKey = searchKey;
 
-  params.set("category", categorySelect.value);
-
-  setStatus("Searching nearby places...");
+  setStatus("Loading saved nearby places...");
   resultsElement.replaceChildren();
   resultMarkers.clearLayers();
   submitButton.disabled = true;
 
   try {
-    const response = await fetch(`${shell.dataset.placesUrl}?${params}`, {
-      signal: controller.signal,
-    });
-    if (!response.ok) {
-      throw new Error("Places request failed.");
+    await loadNearbyPlaces(params, controller.signal, searchKey);
+    if (realtimeRefreshEnabled) {
+      refreshPlacesInBackground(params, searchKey);
     }
-
-    const payload = await response.json();
-    renderPlaces(payload.places ?? []);
   } catch (error) {
     if (error.name === "AbortError") {
       return;
@@ -262,6 +260,115 @@ async function searchPlaces() {
       submitButton.disabled = false;
     }
   }
+}
+
+async function refreshPlacesInBackground(params, searchKey) {
+  currentRefreshController?.abort();
+  currentRefreshController = new AbortController();
+  const controller = currentRefreshController;
+
+  try {
+    setStatus("Refreshing area in the background...");
+    const scan = await startAreaScan(params, controller.signal);
+    await pollAreaScan(scan.id, controller.signal);
+    await loadNearbyPlaces(params, controller.signal, searchKey);
+    setStatus("Nearby places updated.");
+  } catch (error) {
+    if (error.name === "AbortError") {
+      return;
+    }
+
+    setStatus(error.message || "Saved places are shown. Background refresh is not available right now.");
+  } finally {
+    if (currentRefreshController === controller) {
+      currentRefreshController = null;
+    }
+  }
+}
+
+async function loadNearbyPlaces(params, signal, searchKey) {
+  const response = await fetch(`${shell.dataset.nearbyPlacesUrl}?${params}`, {
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error("Nearby places request failed.");
+  }
+
+  const payload = await response.json();
+  if (searchKey !== currentSearchKey) {
+    return;
+  }
+
+  renderPlaces(payload.places ?? []);
+}
+
+async function startAreaScan(params, signal) {
+  const response = await fetch(shell.dataset.areaScansUrl, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRFToken": getCookie("csrftoken"),
+    },
+    body: JSON.stringify(Object.fromEntries(params)),
+    signal,
+  });
+  if (!response.ok) {
+    throw new Error("Area scan request failed.");
+  }
+
+  return response.json();
+}
+
+async function pollAreaScan(scanId, signal) {
+  while (!signal.aborted) {
+    await wait(1200, signal);
+
+    const response = await fetch(`${shell.dataset.areaScansUrl}${scanId}/`, { signal });
+    if (!response.ok) {
+      throw new Error("Area scan status request failed.");
+    }
+
+    const scan = await response.json();
+    if (scan.status === "completed") {
+      return;
+    }
+
+    if (scan.status === "failed") {
+      throw new Error(scan.error_message || "Area scan failed.");
+    }
+
+    if (scan.error_message) {
+      setStatus(scan.error_message);
+    }
+  }
+
+  throw new DOMException("Search aborted.", "AbortError");
+}
+
+function wait(milliseconds, signal) {
+  return new Promise((resolve, reject) => {
+    const timeout = window.setTimeout(resolve, milliseconds);
+    signal.addEventListener(
+      "abort",
+      () => {
+        window.clearTimeout(timeout);
+        reject(new DOMException("Search aborted.", "AbortError"));
+      },
+      { once: true },
+    );
+  });
+}
+
+function buildSearchParams() {
+  const params = new URLSearchParams({
+    lat: latInput.value,
+    lng: lngInput.value,
+    search_radius: radiusInput.value,
+  });
+
+  params.set("category", categorySelect.value);
+
+  return params;
 }
 
 function renderPlaces(places) {
@@ -420,7 +527,7 @@ function restoreSearchFromUrl() {
   const category = params.get("category");
 
   if (lat === null || lng === null) {
-    return;
+    return false;
   }
 
   latInput.value = lat;
@@ -443,12 +550,15 @@ function restoreSearchFromUrl() {
   }
 
   setSelectedLocation(Number(lat), Number(lng), true);
-  searchPlaces();
+  return true;
 }
 
 function resetSearch() {
   currentSearchController?.abort();
+  currentRefreshController?.abort();
   currentSearchController = null;
+  currentRefreshController = null;
+  currentSearchKey = "";
   hideRadiusCircle();
   submitButton.disabled = false;
   categorySelect.value = defaultCategory;
@@ -488,6 +598,7 @@ function setSelectedLocation(lat, lng, moveMap) {
     selectedMarker.on("dragend", () => {
       const location = selectedMarker.getLatLng();
       setSelectedLocation(location.lat, location.lng, false);
+      searchPlaces();
     });
   } else {
     selectedMarker.setLatLng([lat, lng]);
@@ -499,6 +610,10 @@ function setSelectedLocation(lat, lng, moveMap) {
 
   if (radiusCircle !== null) {
     updateRadiusCircle();
+  }
+
+  if (moveMap) {
+    searchPlaces();
   }
 }
 

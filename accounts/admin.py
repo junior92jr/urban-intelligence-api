@@ -29,10 +29,16 @@ class UserProfileAdmin(_UserProfileModelAdmin):
         "service_area",
         "location_sharing_enabled",
         "preferred_radius",
+        "realtime_refresh_enabled",
         "onboarding_completed_at",
     )
     autocomplete_fields = ("service_area",)
-    list_filter = ("location_sharing_enabled", "service_area__country", "service_area")
+    list_filter = (
+        "location_sharing_enabled",
+        "realtime_refresh_enabled",
+        "service_area__country",
+        "service_area",
+    )
     search_fields = ("user__email", "service_area__name", "service_area__country__name")
 
 

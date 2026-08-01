@@ -13,6 +13,7 @@ from accounts.services.registration import (
     reset_password,
 )
 from geo.models import ServiceArea, build_point
+from places.models import DataImport, PlaceCategory
 
 
 class EmailAuthenticationForm(AuthenticationForm):
@@ -96,6 +97,7 @@ class LocationPreferencesForm(forms.Form):
     default_latitude = forms.FloatField(required=False, widget=forms.HiddenInput)
     default_longitude = forms.FloatField(required=False, widget=forms.HiddenInput)
     location_sharing_enabled = forms.BooleanField(required=False)
+    realtime_refresh_enabled = forms.BooleanField(required=False)
     preferred_radius = forms.IntegerField(
         min_value=100,
         max_value=3000,
@@ -112,7 +114,9 @@ class LocationPreferencesForm(forms.Form):
         self.user = user
         self.profile = UserProfile.get_for_user(user)
         self.complete_onboarding = complete_onboarding
-        kwargs.setdefault("initial", self.initial_data())
+        initial = self.initial_data()
+        initial.update(cast(dict[str, object], kwargs.get("initial", {})))
+        kwargs["initial"] = initial
         super().__init__(*args, **kwargs)
         service_area_field = cast(
             "forms.ModelChoiceField[ServiceArea]",
@@ -133,6 +137,7 @@ class LocationPreferencesForm(forms.Form):
             "default_latitude": self.profile.default_latitude,
             "default_longitude": self.profile.default_longitude,
             "location_sharing_enabled": self.profile.location_sharing_enabled,
+            "realtime_refresh_enabled": self.profile.realtime_refresh_enabled,
             "preferred_radius": self.profile.preferred_radius,
         }
 
@@ -162,6 +167,9 @@ class LocationPreferencesForm(forms.Form):
         self.profile.location_sharing_enabled = bool(
             self.cleaned_data.get("location_sharing_enabled"),
         )
+        self.profile.realtime_refresh_enabled = bool(
+            self.cleaned_data.get("realtime_refresh_enabled"),
+        )
         self.profile.preferred_radius = cast(
             int,
             self.cleaned_data.get("preferred_radius", 500),
@@ -180,6 +188,45 @@ class LocationPreferencesForm(forms.Form):
 
         self.profile.save()
         return self.profile
+
+
+class DataImportForm(forms.ModelForm):  # type: ignore[type-arg]
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = DataImport
+        fields = ("source", "service_area", "category_group", "radius")
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        source_field = self.fields["source"]
+        source_field.disabled = True
+        source_field.initial = DataImport.Source.OPEN_STREET_MAP
+
+        service_area_field = cast(
+            "forms.ModelChoiceField[ServiceArea]",
+            self.fields["service_area"],
+        )
+        service_area_field.queryset = ServiceArea.objects.select_related(
+            "country",
+        ).filter(
+            is_active=True,
+            country__is_active=True,
+        )
+
+        category_group_field = cast(
+            forms.ChoiceField,
+            self.fields["category_group"],
+        )
+        category_group_field.choices = PlaceCategory.Group.choices
+
+    @override
+    def save(self, commit: bool = True) -> DataImport:
+        data_import = cast(DataImport, super().save(commit=False))
+        data_import.source = DataImport.Source.OPEN_STREET_MAP
+
+        if commit:
+            data_import.save()
+
+        return data_import
 
 
 def add_form_error(form: forms.Form, error: ValidationError) -> None:

@@ -42,6 +42,11 @@
           <span>Use my saved location to start area discovery.</span>
         </label>
 
+        <label class="check-field">
+          {{ form.realtime_refresh_enabled }}
+          <span>Refresh from OpenStreetMap while searching.</span>
+        </label>
+
         <button class="secondary-button location-button" type="button" id="profile-locate-button">Use current location</button>
         <button class="primary-button" type="submit">Continue to map</button>
       </form>

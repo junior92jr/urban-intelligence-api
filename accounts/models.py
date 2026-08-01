@@ -50,6 +50,7 @@ class UserProfile(models.Model):
     default_location = gis_models.PointField(srid=4326, null=True, blank=True)
     location_sharing_enabled = models.BooleanField(default=False)
     preferred_radius = models.PositiveIntegerField(default=500)
+    realtime_refresh_enabled = models.BooleanField(default=False)
     onboarding_completed_at = models.DateTimeField(null=True, blank=True)
     updated_at = models.DateTimeField(auto_now=True)
 

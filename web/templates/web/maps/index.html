@@ -13,6 +13,8 @@
     <main
       class="map-shell"
       data-places-url="/api/v1/places/"
+      data-nearby-places-url="/api/v1/places/nearby/"
+      data-area-scans-url="/api/v1/places/area-scans/"
       data-categories-url="/api/v1/categories/"
       data-favorites-url="/api/v1/user-places/favorites/"
       data-map-url="{% url 'web:map' %}"
@@ -21,6 +23,7 @@
       data-default-lat="{{ default_latitude|default_if_none:'' }}"
       data-default-lng="{{ default_longitude|default_if_none:'' }}"
       data-default-radius="{{ profile.preferred_radius }}"
+      data-realtime-refresh-enabled="{{ profile.realtime_refresh_enabled|yesno:'true,false' }}"
     >
       {% include "web/includes/app_nav.html" %}
       <section class="sidebar" aria-label="Search controls and results">

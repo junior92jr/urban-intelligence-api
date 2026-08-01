@@ -20,6 +20,7 @@ class ProfileSerializer(serializers.ModelSerializer[User]):
     default_longitude = serializers.SerializerMethodField()
     location_sharing_enabled = serializers.SerializerMethodField()
     preferred_radius = serializers.SerializerMethodField()
+    realtime_refresh_enabled = serializers.SerializerMethodField()
     onboarding_completed = serializers.SerializerMethodField()
 
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
@@ -35,6 +36,7 @@ class ProfileSerializer(serializers.ModelSerializer[User]):
             "default_longitude",
             "location_sharing_enabled",
             "preferred_radius",
+            "realtime_refresh_enabled",
             "onboarding_completed",
         )
 
@@ -59,6 +61,9 @@ class ProfileSerializer(serializers.ModelSerializer[User]):
 
     def get_preferred_radius(self, user: User) -> int:
         return self.get_profile(user).preferred_radius
+
+    def get_realtime_refresh_enabled(self, user: User) -> bool:
+        return self.get_profile(user).realtime_refresh_enabled
 
     def get_onboarding_completed(self, user: User) -> bool:
         return self.get_profile(user).has_completed_onboarding

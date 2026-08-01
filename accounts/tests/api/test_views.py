@@ -185,6 +185,7 @@ def test_profile_returns_authenticated_user(api_client: APIClient) -> None:
         "default_longitude": None,
         "location_sharing_enabled": False,
         "preferred_radius": 500,
+        "realtime_refresh_enabled": False,
         "onboarding_completed": False,
     }
 
