@@ -22,6 +22,27 @@ def test_build_key_uses_location_and_radius():
     assert first_key != second_key
 
 
+def test_build_key_uses_category_filters():
+    first_key = open_street_map_cache.build_cache_key(
+        {
+            "lat": 50.1101038,
+            "lng": 8.6771586,
+            "search_radius": 500,
+            "category": "restaurant",
+        }
+    )
+    second_key = open_street_map_cache.build_cache_key(
+        {
+            "lat": 50.1101038,
+            "lng": 8.6771586,
+            "search_radius": 500,
+            "category_group": "food",
+        }
+    )
+
+    assert first_key != second_key
+
+
 def test_get_payload_returns_none_when_cache_is_disabled(settings):
     settings.CACHE_TIMEOUT_IN_SECS = 0
     query_params = {

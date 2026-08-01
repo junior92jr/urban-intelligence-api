@@ -7,7 +7,7 @@ from places.models import PlaceCategory
 
 def get_categories() -> list[dict[str, str]]:
     return [
-        {"slug": category.slug, "name": category.name}
+        {"slug": category.slug, "name": category.name, "group": category.group}
         for category in active_categories()
     ]
 
@@ -32,6 +32,13 @@ def get_default_osm_category_tags() -> list[tuple[str, str]]:
     return [
         (category.osm_key, category.osm_value)
         for category in active_categories().filter(include_in_default_search=True)
+    ]
+
+
+def get_osm_category_tags_for_group(group: str) -> list[tuple[str, str]]:
+    return [
+        (category.osm_key, category.osm_value)
+        for category in active_categories().filter(group=group)
     ]
 
 

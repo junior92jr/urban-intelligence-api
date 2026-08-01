@@ -39,7 +39,9 @@ def build_cache_key(query_params: Mapping[str, Any]) -> str:
         "open-street-map-"
         f"{query_params['lat']}-"
         f"{query_params['lng']}-"
-        f"{query_params['search_radius']}"
+        f"{query_params['search_radius']}-"
+        f"{query_params.get('category', '')}-"
+        f"{query_params.get('category_group', '')}"
     )
 
     return hashlib.sha1(cache_key.encode("utf-8")).hexdigest()

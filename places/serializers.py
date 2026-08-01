@@ -2,7 +2,7 @@ from typing import Any, cast, override
 
 from rest_framework import serializers
 
-from .models import PlaceCategory
+from .models import AreaScan, DiscoveredPlace, PlaceCategory
 from .services.categories import get_category_by_slug
 from .services.open_street_map import PlaceQueryParams
 
@@ -13,7 +13,51 @@ MAX_SEARCH_RADIUS = 3000
 class CategorySerializer(serializers.ModelSerializer[PlaceCategory]):
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         model = PlaceCategory
-        fields = ("slug", "name")
+        fields = ("slug", "name", "group")
+
+
+class DiscoveredPlaceSerializer(serializers.ModelSerializer[DiscoveredPlace]):
+    latitude = serializers.FloatField(read_only=True)
+    longitude = serializers.FloatField(read_only=True)
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = DiscoveredPlace
+        fields = (
+            "osm_id",
+            "osm_type",
+            "name",
+            "latitude",
+            "longitude",
+            "category",
+            "category_name",
+            "category_group",
+            "osm_uid",
+            "address",
+            "website",
+            "opening_hours",
+        )
+
+
+class AreaScanSerializer(serializers.ModelSerializer[AreaScan]):
+    latitude = serializers.FloatField(read_only=True)
+    longitude = serializers.FloatField(read_only=True)
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = AreaScan
+        fields = (
+            "id",
+            "latitude",
+            "longitude",
+            "radius",
+            "category",
+            "category_group",
+            "status",
+            "result_count",
+            "error_message",
+            "created_at",
+            "started_at",
+            "completed_at",
+        )
 
 
 class RecommendationsQuerySerializer(serializers.Serializer[dict[str, Any]]):
@@ -75,3 +119,11 @@ class RecommendationsQuerySerializer(serializers.Serializer[dict[str, Any]]):
             query_params["category"] = cast(str, category)
 
         return query_params
+
+
+class NearbyPlacesQuerySerializer(RecommendationsQuerySerializer):
+    pass
+
+
+class AreaScanCreateSerializer(RecommendationsQuerySerializer):
+    pass

@@ -6,6 +6,7 @@ from places.services.categories import (
     get_category_by_slug,
     get_category_from_tags,
     get_default_osm_category_tags,
+    get_osm_category_tags_for_group,
     get_osm_category_tags_for_slug,
 )
 
@@ -18,10 +19,12 @@ def test_get_categories_returns_known_category_catalog():
     assert categories[3] == {
         "slug": "parking",
         "name": "Parking",
+        "group": "mobility",
     }
     assert categories[25] == {
         "slug": "wayside-shrine",
         "name": "Wayside Shrine",
+        "group": "tourism",
     }
 
 
@@ -57,6 +60,14 @@ def test_get_default_osm_category_tags_returns_default_osm_pairs():
     assert ("amenity", "restaurant") in tags
     assert ("amenity", "cafe") in tags
     assert ("historic", "wayside_shrine") not in tags
+
+
+def test_get_osm_category_tags_for_group_returns_group_osm_pairs():
+    tags = get_osm_category_tags_for_group("food")
+
+    assert ("amenity", "restaurant") in tags
+    assert ("amenity", "cafe") in tags
+    assert ("amenity", "parking") not in tags
 
 
 def test_get_osm_category_tags_for_slug_returns_known_osm_pair():

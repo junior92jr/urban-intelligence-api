@@ -7,7 +7,11 @@ from django.conf import settings
 from rest_framework.exceptions import APIException
 
 from . import cache
-from .categories import get_default_osm_category_tags, get_osm_category_tags_for_slug
+from .categories import (
+    get_default_osm_category_tags,
+    get_osm_category_tags_for_group,
+    get_osm_category_tags_for_slug,
+)
 
 RETRYABLE_STATUS_CODES = {
     httpx.codes.TOO_MANY_REQUESTS,
@@ -23,6 +27,7 @@ class PlaceQueryParams(TypedDict):
     lng: float
     search_radius: int
     category: NotRequired[str]
+    category_group: NotRequired[str]
 
 
 OpenStreetMapPayload = dict[str, Any]
@@ -45,40 +50,52 @@ def request_places(query_params: PlaceQueryParams) -> httpx.Response:
 
     max_attempts = settings.OPEN_STREET_MAP_MAX_RETRIES + 1
     request_payload = build_request_payload(query_params)
+    overpass_urls = get_overpass_urls()
 
     for attempt in range(1, max_attempts + 1):
-        try:
-            response = httpx.get(
-                settings.OPEN_STREET_MAP_OVERPASS_URL,
-                headers=headers(),
-                params=request_payload,
-                timeout=settings.OPEN_STREET_MAP_TIMEOUT_IN_SECS,
-            )
-        except httpx.RequestError as exc:
-            if attempt == max_attempts:
-                logger.warning("OpenStreetMap request failed: %s", exc)
-                raise OpenStreetMapResourceUnavailable() from exc
+        last_error: httpx.RequestError | None = None
+        for overpass_url in overpass_urls:
+            try:
+                response = httpx.get(
+                    overpass_url,
+                    headers=headers(),
+                    params=request_payload,
+                    timeout=settings.OPEN_STREET_MAP_TIMEOUT_IN_SECS,
+                )
+            except httpx.RequestError as exc:
+                last_error = exc
+                logger.warning(
+                    "OpenStreetMap request to %s failed on attempt %s/%s: %s",
+                    overpass_url,
+                    attempt,
+                    max_attempts,
+                    exc,
+                )
+                continue
 
-            logger.warning(
-                "OpenStreetMap request failed on attempt %s/%s: %s",
-                attempt,
-                max_attempts,
-                exc,
-            )
+            if should_retry_response(response) and attempt < max_attempts:
+                logger.warning(
+                    "OpenStreetMap endpoint %s returned retryable status %s on attempt %s/%s",
+                    overpass_url,
+                    response.status_code,
+                    attempt,
+                    max_attempts,
+                )
+                continue
+
+            return response
+
+        if attempt < max_attempts:
             wait_before_retry(attempt)
             continue
 
-        if should_retry_response(response) and attempt < max_attempts:
-            logger.warning(
-                "OpenStreetMap returned retryable status %s on attempt %s/%s",
-                response.status_code,
-                attempt,
-                max_attempts,
-            )
-            wait_before_retry(attempt)
-            continue
-
-        return response
+        logger.warning(
+            "OpenStreetMap request failed on final attempt %s/%s",
+            attempt,
+            max_attempts,
+        )
+        if last_error is not None:
+            raise OpenStreetMapResourceUnavailable() from last_error
 
     raise OpenStreetMapResourceUnavailable()
 
@@ -125,6 +142,7 @@ def build_request_payload(query_params: PlaceQueryParams) -> dict[str, str]:
             lng=query_params["lng"],
             radius=query_params["search_radius"],
             category=query_params.get("category"),
+            category_group=query_params.get("category_group"),
         )
     }
 
@@ -134,12 +152,14 @@ def build_overpass_query(
     lng: float,
     radius: int,
     category: str | None = None,
+    category_group: str | None = None,
 ) -> str:
-    osm_tags = (
-        get_osm_category_tags_for_slug(category)
-        if category is not None
-        else get_default_osm_category_tags()
-    )
+    if category is not None:
+        osm_tags = get_osm_category_tags_for_slug(category)
+    elif category_group:
+        osm_tags = get_osm_category_tags_for_group(category_group)
+    else:
+        osm_tags = get_default_osm_category_tags()
 
     if not osm_tags:
         raise OpenStreetMapResourceUnavailable()
@@ -163,6 +183,12 @@ def headers() -> dict[str, str]:
         "Accept": "application/json",
         "User-Agent": settings.OPEN_STREET_MAP_USER_AGENT,
     }
+
+
+def get_overpass_urls() -> list[str]:
+    urls = list(settings.OPEN_STREET_MAP_OVERPASS_URLS)
+
+    return urls or [settings.OPEN_STREET_MAP_OVERPASS_URL]
 
 
 def should_retry_response(response: httpx.Response) -> bool:

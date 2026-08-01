@@ -5,6 +5,7 @@ from rest_framework.test import APIClient
 
 from accounts.models import User
 from places import views
+from places.models import AreaScan, DiscoveredPlace
 from places.services.mappers import OpenStreetMapApiResponse
 from user_places.models import SearchHistory
 
@@ -207,4 +208,63 @@ def test_categories_endpoint_returns_known_categories(api_client):
     assert response.json()[3] == {
         "slug": "parking",
         "name": "Parking",
+        "group": "mobility",
     }
+
+
+def test_nearby_places_returns_persisted_places(authenticated_api_client):
+    from geo.models import ServiceArea, build_point
+
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    DiscoveredPlace.objects.create(
+        service_area=service_area,
+        osm_uid="osm-node-1",
+        osm_id=1,
+        osm_type="node",
+        name="Persisted Cafe",
+        category="cafe",
+        category_name="Cafe",
+        category_group="food",
+        location=build_point(latitude=50.1109, longitude=8.6821),
+    )
+
+    response = authenticated_api_client.get(
+        "/api/v1/places/nearby/",
+        {
+            "lat": "50.1109",
+            "lng": "8.6821",
+            "search_radius": "500",
+            "category": "cafe",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["places"][0]["name"] == "Persisted Cafe"
+
+
+def test_area_scan_endpoint_creates_background_scan(authenticated_api_client):
+    from accounts.models import UserProfile
+    from geo.models import ServiceArea
+
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    user = User.objects.get(email="places@example.com")
+    UserProfile.objects.create(user=user, service_area=service_area)
+    mocker(views.run_area_scan).mock("delay").called_once()
+
+    response = authenticated_api_client.post(
+        "/api/v1/places/area-scans/",
+        {
+            "lat": "50.1109",
+            "lng": "8.6821",
+            "search_radius": "500",
+            "category": "restaurant",
+        },
+        format="json",
+    )
+    scan = AreaScan.objects.get()
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    assert response.json()["status"] == "pending"
+    assert response.json()["category"] == "restaurant"
+    assert scan.category_group == "food"
+    assert scan.category == "restaurant"

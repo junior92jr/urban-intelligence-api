@@ -54,6 +54,21 @@ def test_build_request_payload_uses_only_requested_category():
     assert '["tourism"="museum"]' not in payload["data"]
 
 
+def test_build_request_payload_uses_requested_category_group():
+    payload = open_street_map.build_request_payload(
+        {
+            "lat": 50.1101038,
+            "lng": 8.6771586,
+            "search_radius": 250,
+            "category_group": "food",
+        }
+    )
+
+    assert '["amenity"="restaurant"]' in payload["data"]
+    assert '["amenity"="cafe"]' in payload["data"]
+    assert '["amenity"="parking"]' not in payload["data"]
+
+
 def test_build_request_payload_raises_when_no_categories_are_active():
     PlaceCategory.objects.update(is_active=False)
 
@@ -101,6 +116,7 @@ def test_request_places_calls_overpass(settings):
 
 def test_request_places_retries_request_errors(settings):
     settings.OPEN_STREET_MAP_OVERPASS_URL = "https://overpass.test/api"
+    settings.OPEN_STREET_MAP_OVERPASS_URLS = ["https://overpass.test/api"]
     settings.OPEN_STREET_MAP_MAX_RETRIES = 1
     request = httpx.Request("GET", "https://overpass.test/api")
     response = httpx.Response(
@@ -125,8 +141,36 @@ def test_request_places_retries_request_errors(settings):
     )
 
 
+def test_request_places_falls_back_to_next_overpass_url(settings):
+    settings.OPEN_STREET_MAP_OVERPASS_URLS = [
+        "https://overpass-primary.test/api",
+        "https://overpass-fallback.test/api",
+    ]
+    request = httpx.Request("GET", "https://overpass-primary.test/api")
+    response = httpx.Response(
+        httpx.codes.OK,
+        json={"elements": []},
+        request=httpx.Request("GET", "https://overpass-fallback.test/api"),
+    )
+    mocker(open_street_map.httpx).mock("get").side_effect(
+        [httpx.ConnectError("connection failed", request=request), response]
+    )
+
+    assert (
+        open_street_map.request_places(
+            {
+                "lat": 50.1101038,
+                "lng": 8.6771586,
+                "search_radius": 1000,
+            }
+        )
+        == response
+    )
+
+
 def test_request_places_retries_retryable_status_codes(settings):
     settings.OPEN_STREET_MAP_OVERPASS_URL = "https://overpass.test/api"
+    settings.OPEN_STREET_MAP_OVERPASS_URLS = ["https://overpass.test/api"]
     settings.OPEN_STREET_MAP_MAX_RETRIES = 1
     request = httpx.Request("GET", "https://overpass.test/api")
     unavailable_response = httpx.Response(
