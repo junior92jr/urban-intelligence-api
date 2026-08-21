@@ -3,7 +3,7 @@ const form = document.querySelector("#search-form");
 const submitButton = form?.querySelector("button[type='submit']");
 const latInput = document.querySelector("#lat");
 const lngInput = document.querySelector("#lng");
-const categorySelect = document.querySelector("#category");
+const mapLayerSelect = document.querySelector("#map-layer");
 const radiusInput = document.querySelector("#search-radius");
 const radiusOutput = document.querySelector("#radius-output");
 const locateButton = document.querySelector("#locate-button");
@@ -22,9 +22,16 @@ const locationSharingInput = document.querySelector("#id_location_sharing_enable
 const navCollapsedStorageKey = "cityGuide.navCollapsed";
 const fallbackCenter = [50.1109, 8.6821];
 const defaultCenter = getDefaultCenter();
-const defaultCategory = "restaurant";
+const defaultMapLayer = "overview";
 const defaultRadius = shell?.dataset.defaultRadius ?? "500";
 const realtimeRefreshEnabled = shell?.dataset.realtimeRefreshEnabled === "true";
+const mapLayers = {
+  overview: {},
+  amenities: { categoryGroup: "food" },
+  daily_life: { categoryGroup: "essentials" },
+  mobility: { categoryGroup: "mobility" },
+  green: { category: "park" },
+};
 const selectedLocationIcon = mapElement ? createMarkerIcon("#c56a2c", [34, 48]) : null;
 const placeIcon = mapElement ? createMarkerIcon("#126b5a", [28, 40]) : null;
 const favoritePlaceIcon = mapElement ? createHeartMarkerIcon("#c56a2c") : null;
@@ -36,6 +43,7 @@ let currentSearchController = null;
 let currentRefreshController = null;
 let currentSearchKey = "";
 let favoriteOsmUids = new Set();
+let activePlaceItem = null;
 
 if (map !== null) {
   L.tileLayer(shell.dataset.tileUrl, {
@@ -50,11 +58,9 @@ if (shell !== null) {
 
 if (form !== null) {
   setSelectedLocation(defaultCenter[0], defaultCenter[1], false);
-  loadCategories().then(() => {
-    if (!restoreSearchFromUrl()) {
-      searchPlaces();
-    }
-  });
+  if (!restoreSearchFromUrl()) {
+    searchPlaces();
+  }
   loadFavorites();
 }
 
@@ -99,6 +105,10 @@ radiusInput?.addEventListener("blur", () => {
   hideRadiusCircle();
 });
 
+mapLayerSelect?.addEventListener("change", () => {
+  searchPlaces();
+});
+
 form?.addEventListener("submit", async (event) => {
   event.preventDefault();
   await searchPlaces();
@@ -110,7 +120,7 @@ locateButton?.addEventListener("click", () => {
     return;
   }
 
-  setStatus("Finding your location...");
+  setStatus("Finding your location", "loading");
   navigator.geolocation.getCurrentPosition(
     (position) => {
       const { latitude, longitude } = position.coords;
@@ -162,26 +172,6 @@ navToggleButton?.addEventListener("click", () => {
   localStorage.setItem(navCollapsedStorageKey, String(!isCollapsed));
 });
 
-async function loadCategories() {
-  try {
-    const response = await fetch(shell.dataset.categoriesUrl);
-    if (!response.ok) {
-      throw new Error("Categories request failed.");
-    }
-
-    const categories = await response.json();
-    categories.forEach((category) => {
-      const option = document.createElement("option");
-      option.value = category.slug;
-      option.textContent = category.name;
-      option.selected = category.slug === defaultCategory;
-      categorySelect.append(option);
-    });
-  } catch {
-    setStatus("Categories are not available right now.");
-  }
-}
-
 async function loadFavorites() {
   try {
     const response = await fetch(shell.dataset.favoritesUrl);
@@ -197,7 +187,8 @@ async function loadFavorites() {
 }
 
 async function loadFavoritePlaces() {
-  setStatus("Loading favorite places...");
+  setStatus("Loading saved places", "loading");
+  renderPlaceSkeletons(favoriteResultsElement);
 
   try {
     const response = await fetch(shell.dataset.favoritesUrl);
@@ -238,8 +229,9 @@ async function searchPlaces() {
   const searchKey = params.toString();
   currentSearchKey = searchKey;
 
-  setStatus("Loading saved nearby places...");
+  setStatus("Finding nearby places", "loading");
   resultsElement.replaceChildren();
+  renderPlaceSkeletons(resultsElement);
   resultMarkers.clearLayers();
   submitButton.disabled = true;
 
@@ -253,7 +245,7 @@ async function searchPlaces() {
       return;
     }
 
-    setStatus("Places are not available right now.");
+    setStatus("We couldn't load nearby places.", "error");
   } finally {
     if (currentSearchController === controller) {
       currentSearchController = null;
@@ -268,17 +260,16 @@ async function refreshPlacesInBackground(params, searchKey) {
   const controller = currentRefreshController;
 
   try {
-    setStatus("Refreshing area in the background...");
+    setStatus("Checking for recent places", "loading");
     const scan = await startAreaScan(params, controller.signal);
     await pollAreaScan(scan.id, controller.signal);
     await loadNearbyPlaces(params, controller.signal, searchKey);
-    setStatus("Nearby places updated.");
   } catch (error) {
     if (error.name === "AbortError") {
       return;
     }
 
-    setStatus(error.message || "Saved places are shown. Background refresh is not available right now.");
+    setStatus("Showing saved places. We couldn't refresh them.", "warning");
   } finally {
     if (currentRefreshController === controller) {
       currentRefreshController = null;
@@ -338,7 +329,7 @@ async function pollAreaScan(scanId, signal) {
     }
 
     if (scan.error_message) {
-      setStatus(scan.error_message);
+      setStatus("Checking for recent places", "loading");
     }
   }
 
@@ -366,14 +357,28 @@ function buildSearchParams() {
     search_radius: radiusInput.value,
   });
 
-  params.set("category", categorySelect.value);
+  const layer = mapLayerSelect?.value ?? defaultMapLayer;
+  const layerFilter = mapLayers[layer] ?? {};
+  if (layerFilter.category !== undefined) {
+    params.set("category", layerFilter.category);
+  }
+  if (layerFilter.categoryGroup !== undefined) {
+    params.set("category_group", layerFilter.categoryGroup);
+  }
 
   return params;
 }
 
 function renderPlaces(places) {
+  resultsElement.replaceChildren();
+
   if (places.length === 0) {
-    setStatus("No places found for this search.");
+    renderEmptyPlaceList(
+      resultsElement,
+      "No nearby places",
+      "Try moving the map or choosing another layer.",
+    );
+    setStatus("No nearby places in this area.");
     return;
   }
 
@@ -388,37 +393,20 @@ function renderPlaces(places) {
 
     bounds.push([place.latitude, place.longitude]);
 
-    const item = document.createElement("li");
-    item.className = "result-item";
-
-    const button = document.createElement("button");
-    button.className = "result-place-button";
-    button.type = "button";
-    button.textContent = place.name;
-    button.addEventListener("click", () => {
-      map.setView([place.latitude, place.longitude], 17);
-      marker.openPopup();
+    const { item, favoriteButton } = createPlaceListItem(place, marker, {
+      includeDistance: true,
     });
-
-    const meta = document.createElement("span");
-    meta.className = "result-meta";
-    meta.textContent = `${place.category_name} · ${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)}`;
-
-    const favoriteButton = document.createElement("button");
-    favoriteButton.className = "favorite-button";
-    favoriteButton.type = "button";
     updateFavoriteButton(favoriteButton, place);
     favoriteButton.addEventListener("click", async () => {
       await toggleFavorite(place, favoriteButton);
       marker.setIcon(getPlaceMarkerIcon(place));
     });
 
-    item.append(button, meta, favoriteButton);
     resultsElement.append(item);
   });
 
   map.fitBounds(bounds, { padding: [40, 40], maxZoom: 16 });
-  setStatus(`${places.length} places found.`);
+  setStatus(`${places.length} places nearby`, "ready");
 }
 
 function renderFavoritePlaces(favorites) {
@@ -426,6 +414,11 @@ function renderFavoritePlaces(favorites) {
   resultMarkers.clearLayers();
 
   if (favorites.length === 0) {
+    renderEmptyPlaceList(
+      favoriteResultsElement,
+      "No saved places",
+      "Save a place from the map to find it again here.",
+    );
     setStatus("No favorite places saved yet.");
     return;
   }
@@ -441,25 +434,7 @@ function renderFavoritePlaces(favorites) {
 
     bounds.push([place.latitude, place.longitude]);
 
-    const item = document.createElement("li");
-    item.className = "result-item";
-
-    const button = document.createElement("button");
-    button.className = "result-place-button";
-    button.type = "button";
-    button.textContent = place.name;
-    button.addEventListener("click", () => {
-      map.setView([place.latitude, place.longitude], 17);
-      marker.openPopup();
-    });
-
-    const meta = document.createElement("span");
-    meta.className = "result-meta";
-    meta.textContent = `${place.category_name} · ${place.latitude.toFixed(5)}, ${place.longitude.toFixed(5)}`;
-
-    const favoriteButton = document.createElement("button");
-    favoriteButton.className = "favorite-button";
-    favoriteButton.type = "button";
+    const { item, favoriteButton } = createPlaceListItem(place, marker);
     updateFavoriteButton(favoriteButton, place);
     favoriteButton.addEventListener("click", async () => {
       await toggleFavorite(place, favoriteButton);
@@ -471,7 +446,6 @@ function renderFavoritePlaces(favorites) {
       }
     });
 
-    item.append(button, meta, favoriteButton);
     favoriteResultsElement.append(item);
   });
 
@@ -500,7 +474,11 @@ function renderSearchHistory(searches) {
     bounds.push([search.latitude, search.longitude]);
 
     const item = document.createElement("li");
-    item.className = "result-item";
+    item.className = "result-item result-item--history";
+
+    const icon = createPlaceCategoryIcon("history");
+    const content = document.createElement("div");
+    content.className = "result-content";
 
     const link = document.createElement("a");
     link.className = "result-place-button";
@@ -509,14 +487,137 @@ function renderSearchHistory(searches) {
 
     const meta = document.createElement("span");
     meta.className = "result-meta";
-    meta.textContent = `${search.search_radius} m · ${search.result_count} results · ${search.latitude.toFixed(5)}, ${search.longitude.toFixed(5)}`;
+    meta.textContent = `${search.search_radius} m radius · ${search.result_count} places`;
 
-    item.append(link, meta);
+    content.append(link, meta);
+    item.append(icon, content);
     historyResultsElement.append(item);
   });
 
   map.fitBounds(bounds, { padding: [40, 40], maxZoom: 13 });
   setStatus(`${searches.length} recent searches.`);
+}
+
+function createPlaceListItem(place, marker, { includeDistance = false } = {}) {
+  const item = document.createElement("li");
+  item.className = "result-item";
+
+  const icon = createPlaceCategoryIcon(place.category_group ?? place.category);
+  const content = document.createElement("div");
+  content.className = "result-content";
+
+  const button = document.createElement("button");
+  button.className = "result-place-button";
+  button.type = "button";
+  button.textContent = place.name;
+  button.addEventListener("click", () => focusPlaceOnMap(item, marker, place));
+
+  const meta = document.createElement("span");
+  meta.className = "result-meta";
+  meta.textContent = formatPlaceMeta(place, includeDistance);
+
+  content.append(button, meta);
+  if (place.address) {
+    const address = document.createElement("span");
+    address.className = "result-address";
+    address.textContent = place.address;
+    content.append(address);
+  }
+
+  const favoriteButton = document.createElement("button");
+  favoriteButton.className = "favorite-button";
+  favoriteButton.type = "button";
+
+  item.addEventListener("mouseenter", () => item.classList.add("is-hovered"));
+  item.addEventListener("mouseleave", () => item.classList.remove("is-hovered"));
+  marker.on("mouseover", () => item.classList.add("is-hovered"));
+  marker.on("mouseout", () => item.classList.remove("is-hovered"));
+
+  item.append(icon, content, favoriteButton);
+
+  return { item, favoriteButton };
+}
+
+function focusPlaceOnMap(item, marker, place) {
+  activePlaceItem?.classList.remove("is-selected");
+  item.classList.add("is-selected");
+  activePlaceItem = item;
+  map.setView([place.latitude, place.longitude], 17);
+  marker.openPopup();
+}
+
+function formatPlaceMeta(place, includeDistance) {
+  const details = [place.category_name];
+
+  if (includeDistance && place.distance_meters !== null) {
+    details.push(formatDistance(place.distance_meters));
+  }
+
+  return details.filter(Boolean).join(" · ");
+}
+
+function formatDistance(distanceMeters) {
+  if (distanceMeters < 1000) {
+    return `${distanceMeters} m`;
+  }
+
+  return `${(distanceMeters / 1000).toFixed(1)} km`;
+}
+
+function renderPlaceSkeletons(container) {
+  if (container === null) {
+    return;
+  }
+
+  container.replaceChildren();
+
+  for (let index = 0; index < 3; index += 1) {
+    const item = document.createElement("li");
+    item.className = "result-item result-item--skeleton";
+    item.innerHTML = `
+      <span class="result-skeleton result-skeleton--icon"></span>
+      <span class="result-content">
+        <span class="result-skeleton result-skeleton--title"></span>
+        <span class="result-skeleton result-skeleton--meta"></span>
+      </span>
+    `;
+    container.append(item);
+  }
+}
+
+function renderEmptyPlaceList(container, title, message) {
+  container.replaceChildren();
+
+  const item = document.createElement("li");
+  item.className = "empty-results";
+  item.innerHTML = `
+    <svg aria-hidden="true" viewBox="0 0 24 24">
+      <circle cx="11" cy="11" r="6"></circle>
+      <path d="m16 16 4 4"></path>
+    </svg>
+    <strong>${escapeHtml(title)}</strong>
+    <span>${escapeHtml(message)}</span>
+  `;
+  container.append(item);
+}
+
+function createPlaceCategoryIcon(category) {
+  const icon = document.createElement("span");
+  icon.className = "place-category-icon";
+  icon.setAttribute("aria-hidden", "true");
+
+  const icons = {
+    food: '<path d="M8 3v7M5 3v4a3 3 0 0 0 6 0V3M8 10v11M16 3v18M16 3c3 2 3 6 0 8"/>',
+    mobility: '<path d="M5 15h14M7 15l1-6h8l1 6M7 18h.01M17 18h.01"/>',
+    essentials: '<path d="M7 4h10v16H7zM10 8h4M10 12h4M10 16h4"/>',
+    park: '<path d="M12 21V11M12 11c-5 0-7-3-7-7 5 0 7 3 7 7ZM12 15c4 0 7-2 7-6-4 0-7 2-7 6Z"/>',
+    tourism: '<path d="M12 21V11M12 11c-5 0-7-3-7-7 5 0 7 3 7 7ZM12 15c4 0 7-2 7-6-4 0-7 2-7 6Z"/>',
+    history: '<path d="M4 12a8 8 0 1 0 2-5.7M4 4v4h4M12 8v5l3 2"/>',
+  };
+  const path = icons[category] ?? '<path d="M12 21s7-5.3 7-11a7 7 0 1 0-14 0c0 5.7 7 11 7 11ZM12 12h.01"/>';
+  icon.innerHTML = `<svg viewBox="0 0 24 24">${path}</svg>`;
+
+  return icon;
 }
 
 function restoreSearchFromUrl() {
@@ -525,6 +626,8 @@ function restoreSearchFromUrl() {
   const lng = params.get("lng");
   const searchRadius = params.get("search_radius");
   const category = params.get("category");
+  const categoryGroup = params.get("category_group");
+  const mapLayer = params.get("map_layer");
 
   if (lat === null || lng === null) {
     return false;
@@ -538,15 +641,9 @@ function restoreSearchFromUrl() {
     radiusOutput.value = `${searchRadius} m`;
   }
 
-  if (category !== null) {
-    const selectCategory = () => {
-      categorySelect.value = category;
-    };
-    if (categorySelect.options.length > 0) {
-      selectCategory();
-    } else {
-      setTimeout(selectCategory, 100);
-    }
+  const restoredLayer = mapLayer ?? findLayerForFilter(category, categoryGroup);
+  if (restoredLayer !== null && mapLayerSelect !== null) {
+    mapLayerSelect.value = restoredLayer;
   }
 
   setSelectedLocation(Number(lat), Number(lng), true);
@@ -561,7 +658,9 @@ function resetSearch() {
   currentSearchKey = "";
   hideRadiusCircle();
   submitButton.disabled = false;
-  categorySelect.value = defaultCategory;
+  if (mapLayerSelect !== null) {
+    mapLayerSelect.value = defaultMapLayer;
+  }
   radiusInput.value = defaultRadius;
   radiusOutput.value = `${defaultRadius} m`;
   resultsElement.replaceChildren();
@@ -617,11 +716,17 @@ function setSelectedLocation(lat, lng, moveMap) {
   }
 }
 
-function setStatus(message) {
+function setStatus(message, state = "") {
   if (statusElement !== null) {
     statusElement.textContent = message;
+    if (state) {
+      statusElement.dataset.state = state;
+    } else {
+      delete statusElement.dataset.state;
+    }
   }
 }
+
 
 function applyNavigationState(isCollapsed) {
   if (shell === null) {
@@ -699,6 +804,7 @@ function updateFavoriteButton(button, place) {
     "aria-label",
     `${isFavorite ? "Remove" : "Save"} ${place.name} ${isFavorite ? "from" : "to"} favorites`,
   );
+  button.title = isFavorite ? "Remove from favorites" : "Save to favorites";
   button.dataset.active = String(isFavorite);
 }
 
@@ -726,6 +832,19 @@ function buildSearchUrl(search) {
 
 function formatSearchTitle(search) {
   return search.category === "" ? "Default categories" : titleize(search.category);
+}
+
+function findLayerForFilter(category, categoryGroup) {
+  for (const [layer, filter] of Object.entries(mapLayers)) {
+    if (category !== null && filter.category === category) {
+      return layer;
+    }
+    if (categoryGroup !== null && filter.categoryGroup === categoryGroup) {
+      return layer;
+    }
+  }
+
+  return category === null && categoryGroup === null ? defaultMapLayer : null;
 }
 
 function titleize(value) {

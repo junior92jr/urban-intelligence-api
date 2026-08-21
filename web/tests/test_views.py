@@ -62,6 +62,11 @@ def test_map_page_renders_search_sidebar_for_authenticated_user(
     assert b"data-area-scans-url=" in response.content
     assert b'data-realtime-refresh-enabled="false"' in response.content
     assert b'id="search-form"' in response.content
+    assert b"Area Intelligence" in response.content
+    assert b"Map features" in response.content
+    assert b"Nearby places" in response.content
+    assert b"Latitude" not in response.content
+    assert b"Longitude" not in response.content
     assert b"app-rail" in response.content
     assert b"Sign in to search" not in response.content
     assert b"unpkg.com" not in response.content
@@ -655,12 +660,12 @@ def test_sidebar_results_scroll_inside_map_shell() -> None:
     assert "overscroll-behavior: contain;" in styles
 
 
-def test_favorite_button_uses_compact_heart_style() -> None:
+def test_favorite_button_uses_compact_inline_style() -> None:
     styles = STYLES_PATH.read_text()
 
-    assert "border-radius: 999px;" in styles
-    assert "position: absolute;" in styles
-    assert "box-shadow: 0 6px 18px" in styles
+    assert ".favorite-button {" in styles
+    assert "width: 32px;" in styles
+    assert "border-radius: 7px;" in styles
 
 
 def test_data_import_results_scroll_inside_panel() -> None:

@@ -15,7 +15,6 @@
       data-places-url="/api/v1/places/"
       data-nearby-places-url="/api/v1/places/nearby/"
       data-area-scans-url="/api/v1/places/area-scans/"
-      data-categories-url="/api/v1/categories/"
       data-favorites-url="/api/v1/user-places/favorites/"
       data-map-url="{% url 'web:map' %}"
       data-tile-url="{{ map_tile_url }}"
@@ -26,13 +25,13 @@
       data-realtime-refresh-enabled="{{ profile.realtime_refresh_enabled|yesno:'true,false' }}"
     >
       {% include "web/includes/app_nav.html" %}
-      <section class="sidebar" aria-label="Search controls and results">
+      <section class="sidebar" aria-label="Area intelligence controls and map features">
         <div class="sidebar-content">
           <header class="app-header">
             <div class="brand-mark" aria-hidden="true">CG</div>
             <div>
               <p class="eyebrow">City Guide</p>
-              <h1>Nearby Places</h1>
+              <h1>Area Intelligence</h1>
             </div>
           </header>
 
@@ -41,21 +40,19 @@
             <a href="{% url 'web:profile' %}">Profile</a>
           </div>
 
-          <form class="search-form" id="search-form">
-            <div class="field-grid">
-              <label class="field">
-                <span>Latitude</span>
-                <input id="lat" name="lat" type="number" step="any" required>
-              </label>
-              <label class="field">
-                <span>Longitude</span>
-                <input id="lng" name="lng" type="number" step="any" required>
-              </label>
-            </div>
+          <form class="search-form feature-form" id="search-form">
+            <input id="lat" name="lat" type="hidden">
+            <input id="lng" name="lng" type="hidden">
 
             <label class="field">
-              <span>Category</span>
-              <select id="category" name="category" required></select>
+              <span>Map features</span>
+              <select id="map-layer" name="map_layer">
+                <option value="overview">Overview</option>
+                <option value="amenities">Amenities</option>
+                <option value="daily_life">Daily life</option>
+                <option value="mobility">Mobility</option>
+                <option value="green">Green spaces</option>
+              </select>
             </label>
 
             <label class="field">
@@ -114,10 +111,10 @@
           </form>
 
           <div class="results-header">
-            <h2>Results</h2>
-            <div class="status" id="status" role="status"></div>
+            <h2>Nearby places</h2>
+            <div class="status" id="status" role="status" aria-live="polite"></div>
           </div>
-          <ol class="results" id="results" aria-label="Places"></ol>
+          <ol class="results" id="results" aria-label="Nearby places"></ol>
         </div>
       </section>
 
