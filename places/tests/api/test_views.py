@@ -1,11 +1,20 @@
+from datetime import timedelta
+
 import pytest
 from chainmock import mocker
+from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from places import views
-from places.models import AreaScan, DiscoveredPlace
+from places.models import (
+    AreaIndicatorObservation,
+    AreaScan,
+    DiscoveredPlace,
+    IntelligenceIndicator,
+    IntelligenceSource,
+)
 from places.services.mappers import OpenStreetMapApiResponse
 from user_places.models import SearchHistory
 
@@ -212,10 +221,74 @@ def test_categories_endpoint_returns_known_categories(api_client):
     }
 
 
+def test_area_intelligence_returns_latest_observation_for_user_service_area(
+    authenticated_api_client,
+):
+    from accounts.models import UserProfile
+    from geo.models import ServiceArea
+
+    user = User.objects.get(email="places@example.com")
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    UserProfile.objects.create(user=user, service_area=service_area)
+    indicator = IntelligenceIndicator.objects.get(slug="walkability")
+    source = IntelligenceSource.objects.get(slug="open-street-map")
+    AreaIndicatorObservation.objects.create(
+        service_area=service_area,
+        indicator=indicator,
+        source=source,
+        score=72,
+        methodology="Pedestrian network coverage",
+        observed_at=timezone.now() - timedelta(days=1),
+    )
+    AreaIndicatorObservation.objects.create(
+        service_area=service_area,
+        indicator=indicator,
+        source=source,
+        score=88,
+        methodology="Pedestrian network coverage",
+        observed_at=timezone.now(),
+    )
+
+    response = authenticated_api_client.get("/api/v1/places/area-intelligence/")
+
+    assert response.status_code == status.HTTP_200_OK
+    payload = response.json()
+    assert payload["service_area"] == {
+        "slug": "frankfurt-am-main",
+        "name": "Frankfurt am Main",
+    }
+    mobility = next(group for group in payload["groups"] if group["slug"] == "mobility")
+    walkability = next(
+        indicator
+        for indicator in mobility["indicators"]
+        if indicator["slug"] == "walkability"
+    )
+    assert walkability["observation"]["score"] == 88
+    assert walkability["observation"]["source"] == {
+        "name": "OpenStreetMap",
+        "attribution": "OpenStreetMap contributors",
+    }
+    assert [group["slug"] for group in payload["groups"]] == ["mobility"]
+
+
+def test_area_intelligence_requires_a_service_area(authenticated_api_client):
+    response = authenticated_api_client.get("/api/v1/places/area-intelligence/")
+
+    assert response.status_code == status.HTTP_400_BAD_REQUEST
+    assert response.json() == {
+        "service_area": "Complete onboarding before viewing area intelligence."
+    }
+
+
 def test_nearby_places_returns_persisted_places(authenticated_api_client):
+    from accounts.models import UserProfile
     from geo.models import ServiceArea, build_point
 
     service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    UserProfile.objects.create(
+        user=User.objects.get(email="places@example.com"),
+        service_area=service_area,
+    )
     DiscoveredPlace.objects.create(
         service_area=service_area,
         osm_uid="osm-node-1",
@@ -240,6 +313,106 @@ def test_nearby_places_returns_persisted_places(authenticated_api_client):
 
     assert response.status_code == status.HTTP_200_OK
     assert response.json()["places"][0]["name"] == "Persisted Cafe"
+    assert response.json()["places"][0]["distance_meters"] == 0
+
+
+def test_nearby_places_is_scoped_to_the_users_service_area(
+    authenticated_api_client,
+):
+    from accounts.models import UserProfile
+    from geo.models import ServiceArea, build_point
+
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    other_service_area = ServiceArea.objects.create(
+        country=service_area.country,
+        slug="frankfurt-nord",
+        name="Frankfurt Nord",
+        center=build_point(latitude=50.0954, longitude=8.6809),
+    )
+    UserProfile.objects.create(
+        user=User.objects.get(email="places@example.com"),
+        service_area=service_area,
+    )
+    place_defaults = {
+        "osm_uid": "osm-node-2706991161",
+        "osm_id": 2706991161,
+        "osm_type": "node",
+        "name": "Ristorante Colosseo",
+        "category": "restaurant",
+        "category_name": "Restaurant",
+        "category_group": "food",
+        "location": build_point(latitude=50.0953931, longitude=8.681116),
+    }
+    DiscoveredPlace.objects.create(service_area=service_area, **place_defaults)
+    DiscoveredPlace.objects.create(
+        service_area=other_service_area,
+        **place_defaults,
+    )
+
+    response = authenticated_api_client.get(
+        "/api/v1/places/nearby/",
+        {
+            "lat": "50.0954",
+            "lng": "8.6809",
+            "search_radius": "500",
+            "category": "restaurant",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [place["osm_uid"] for place in response.json()["places"]] == [
+        "osm-node-2706991161"
+    ]
+
+
+def test_nearby_places_filters_persisted_places_by_category_group(
+    authenticated_api_client,
+):
+    from accounts.models import UserProfile
+    from geo.models import ServiceArea, build_point
+
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    UserProfile.objects.create(
+        user=User.objects.get(email="places@example.com"),
+        service_area=service_area,
+    )
+    DiscoveredPlace.objects.create(
+        service_area=service_area,
+        osm_uid="osm-node-1",
+        osm_id=1,
+        osm_type="node",
+        name="Persisted Cafe",
+        category="cafe",
+        category_name="Cafe",
+        category_group="food",
+        location=build_point(latitude=50.1109, longitude=8.6821),
+    )
+    DiscoveredPlace.objects.create(
+        service_area=service_area,
+        osm_uid="osm-node-2",
+        osm_id=2,
+        osm_type="node",
+        name="Persisted Parking",
+        category="parking",
+        category_name="Parking",
+        category_group="mobility",
+        location=build_point(latitude=50.1109, longitude=8.6821),
+    )
+
+    response = authenticated_api_client.get(
+        "/api/v1/places/nearby/",
+        {
+            "lat": "50.1109",
+            "lng": "8.6821",
+            "search_radius": "500",
+            "category_group": "mobility",
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert [place["name"] for place in response.json()["places"]] == [
+        "Persisted Parking"
+    ]
 
 
 def test_area_scan_endpoint_creates_background_scan(authenticated_api_client):
@@ -268,3 +441,32 @@ def test_area_scan_endpoint_creates_background_scan(authenticated_api_client):
     assert response.json()["category"] == "restaurant"
     assert scan.category_group == "food"
     assert scan.category == "restaurant"
+
+
+def test_area_scan_endpoint_creates_background_group_scan(authenticated_api_client):
+    from accounts.models import UserProfile
+    from geo.models import ServiceArea
+
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    user = User.objects.get(email="places@example.com")
+    UserProfile.objects.create(user=user, service_area=service_area)
+    mocker(views.run_area_scan).mock("delay").called_once()
+
+    response = authenticated_api_client.post(
+        "/api/v1/places/area-scans/",
+        {
+            "lat": "50.1109",
+            "lng": "8.6821",
+            "search_radius": "500",
+            "category_group": "mobility",
+        },
+        format="json",
+    )
+    scan = AreaScan.objects.get()
+
+    assert response.status_code == status.HTTP_202_ACCEPTED
+    assert response.json()["status"] == "pending"
+    assert response.json()["category"] == ""
+    assert response.json()["category_group"] == "mobility"
+    assert scan.category_group == "mobility"
+    assert scan.category == ""

@@ -27,6 +27,22 @@ def test_create_area_scan_keeps_category_and_category_group():
     assert scan.longitude == 8.6821
 
 
+def test_create_area_scan_keeps_requested_category_group():
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+
+    scan = discovery.create_area_scan(
+        service_area=service_area,
+        latitude=50.1109,
+        longitude=8.6821,
+        radius=500,
+        user_id=None,
+        category_group="mobility",
+    )
+
+    assert scan.category == ""
+    assert scan.category_group == "mobility"
+
+
 def test_upsert_discovered_places_creates_persistent_places():
     service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
     response = OpenStreetMapApiResponse.from_api_response(
@@ -87,6 +103,7 @@ def test_nearby_places_filters_by_distance_and_category():
 
     places = list(
         discovery.nearby_places(
+            service_area=service_area,
             latitude=50.1109,
             longitude=8.6821,
             radius=500,
@@ -95,6 +112,44 @@ def test_nearby_places_filters_by_distance_and_category():
     )
 
     assert [place.name for place in places] == ["Nearby Cafe"]
+
+
+def test_nearby_places_filters_by_category_group():
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    DiscoveredPlace.objects.create(
+        service_area=service_area,
+        osm_uid="osm-node-1",
+        osm_id=1,
+        osm_type="node",
+        name="Nearby Cafe",
+        category="cafe",
+        category_name="Cafe",
+        category_group="food",
+        location=build_point(latitude=50.1109, longitude=8.6821),
+    )
+    DiscoveredPlace.objects.create(
+        service_area=service_area,
+        osm_uid="osm-node-2",
+        osm_id=2,
+        osm_type="node",
+        name="Nearby Parking",
+        category="parking",
+        category_name="Parking",
+        category_group="mobility",
+        location=build_point(latitude=50.1109, longitude=8.6821),
+    )
+
+    places = list(
+        discovery.nearby_places(
+            service_area=service_area,
+            latitude=50.1109,
+            longitude=8.6821,
+            radius=500,
+            category_group="mobility",
+        )
+    )
+
+    assert [place.name for place in places] == ["Nearby Parking"]
 
 
 def test_run_scan_updates_scan_status_and_persists_results():

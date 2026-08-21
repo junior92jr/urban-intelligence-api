@@ -13,8 +13,9 @@ from rest_framework.response import Response
 from accounts.models import User, UserProfile
 from user_places.services import record_place_search
 
-from .models import AreaScan, PlaceCategory
+from .models import AreaScan, IntelligenceIndicator, PlaceCategory
 from .serializers import (
+    AreaIntelligenceIndicatorSerializer,
     AreaScanCreateSerializer,
     AreaScanSerializer,
     CategorySerializer,
@@ -24,6 +25,7 @@ from .serializers import (
 )
 from .services import search_places_by_location
 from .services.discovery import create_area_scan, nearby_places
+from .services.intelligence import get_area_intelligence
 from .tasks import run_area_scan
 
 
@@ -89,15 +91,79 @@ class NearbyPlacesView(GenericAPIView[Any]):
         )
         serializer.is_valid(raise_exception=True)
         query_params = serializer.to_query_params()
+        user = request.user
+        assert isinstance(user, AbstractBaseUser)
+        profile = UserProfile.get_for_user(user)
+
+        if profile.service_area is None:
+            raise ValidationError(
+                {"service_area": "Complete onboarding before viewing nearby places."}
+            )
+
         places = nearby_places(
+            service_area=profile.service_area,
             latitude=query_params["lat"],
             longitude=query_params["lng"],
             radius=query_params["search_radius"],
             category=query_params.get("category"),
+            category_group=query_params.get("category_group"),
         )
         response_serializer = DiscoveredPlaceSerializer(places, many=True)
 
         return Response({"places": response_serializer.data})
+
+
+class AreaIntelligenceView(GenericAPIView[Any]):
+    permission_classes = (IsAuthenticated,)
+
+    def get(self, request: Request) -> Response:
+        user = request.user
+        assert isinstance(user, AbstractBaseUser)
+        profile = UserProfile.get_for_user(user)
+
+        if profile.service_area is None:
+            raise ValidationError(
+                {
+                    "service_area": "Complete onboarding before viewing area intelligence."
+                }
+            )
+
+        groups: dict[str, list[dict[str, Any]]] = {}
+        for indicator, observation in get_area_intelligence(
+            service_area=profile.service_area,
+        ):
+            if observation is None:
+                continue
+
+            groups.setdefault(indicator.group, []).append(
+                {
+                    "slug": indicator.slug,
+                    "name": indicator.name,
+                    "value_type": indicator.value_type,
+                    "observation": observation,
+                }
+            )
+
+        return Response(
+            {
+                "service_area": {
+                    "slug": profile.service_area.slug,
+                    "name": profile.service_area.name,
+                },
+                "groups": [
+                    {
+                        "slug": group,
+                        "name": label,
+                        "indicators": AreaIntelligenceIndicatorSerializer(
+                            cast(Any, groups[group]),
+                            many=True,
+                        ).data,
+                    }
+                    for group, label in IntelligenceIndicator.Group.choices
+                    if group in groups
+                ],
+            }
+        )
 
 
 class AreaScanCreateView(GenericAPIView[Any]):
@@ -127,6 +193,7 @@ class AreaScanCreateView(GenericAPIView[Any]):
             radius=query_params["search_radius"],
             user_id=user.pk,
             category=query_params.get("category"),
+            category_group=query_params.get("category_group"),
         )
         assert scan.pk is not None
         cast(Any, run_area_scan).delay(scan.pk)

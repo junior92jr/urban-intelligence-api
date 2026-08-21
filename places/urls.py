@@ -2,6 +2,7 @@ from django.urls import path
 from rest_framework.routers import DefaultRouter
 
 from .views import (
+    AreaIntelligenceView,
     AreaScanCreateView,
     AreaScanDetailView,
     CategoryViewSet,
@@ -17,6 +18,11 @@ router.register("categories", CategoryViewSet, basename="categories")
 router.register("", RecommendationViewSet, basename="places")
 
 urlpatterns = [
+    path(
+        "places/area-intelligence/",
+        AreaIntelligenceView.as_view(),
+        name="area-intelligence",
+    ),
     path("places/nearby/", NearbyPlacesView.as_view(), name="nearby"),
     path("places/area-scans/", AreaScanCreateView.as_view(), name="area-scans"),
     path(

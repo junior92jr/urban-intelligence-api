@@ -2,7 +2,14 @@ from typing import Any, cast, override
 
 from rest_framework import serializers
 
-from .models import AreaScan, DiscoveredPlace, PlaceCategory
+from .models import (
+    AreaIndicatorObservation,
+    AreaScan,
+    DiscoveredPlace,
+    IntelligenceIndicator,
+    IntelligenceSource,
+    PlaceCategory,
+)
 from .services.categories import get_category_by_slug
 from .services.open_street_map import PlaceQueryParams
 
@@ -19,6 +26,12 @@ class CategorySerializer(serializers.ModelSerializer[PlaceCategory]):
 class DiscoveredPlaceSerializer(serializers.ModelSerializer[DiscoveredPlace]):
     latitude = serializers.FloatField(read_only=True)
     longitude = serializers.FloatField(read_only=True)
+    distance_meters = serializers.SerializerMethodField()
+
+    def get_distance_meters(self, place: DiscoveredPlace) -> int | None:
+        distance = getattr(place, "distance", None)
+
+        return round(distance.m) if distance is not None else None
 
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         model = DiscoveredPlace
@@ -28,6 +41,7 @@ class DiscoveredPlaceSerializer(serializers.ModelSerializer[DiscoveredPlace]):
             "name",
             "latitude",
             "longitude",
+            "distance_meters",
             "category",
             "category_name",
             "category_group",
@@ -60,6 +74,40 @@ class AreaScanSerializer(serializers.ModelSerializer[AreaScan]):
         )
 
 
+class IntelligenceSourceSerializer(serializers.ModelSerializer[IntelligenceSource]):
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = IntelligenceSource
+        fields = ("name", "attribution")
+
+
+class AreaIndicatorObservationSerializer(
+    serializers.ModelSerializer[AreaIndicatorObservation]
+):
+    source = IntelligenceSourceSerializer(  # type: ignore[assignment]  # pyright: ignore[reportAssignmentType]
+        read_only=True,
+    )
+
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = AreaIndicatorObservation
+        fields = (
+            "score",
+            "trend",
+            "source",
+            "methodology",
+            "observed_at",
+            "expires_at",
+        )
+
+
+class AreaIntelligenceIndicatorSerializer(serializers.Serializer[dict[str, Any]]):
+    slug = serializers.SlugField()
+    name = serializers.CharField()
+    value_type = serializers.ChoiceField(
+        choices=IntelligenceIndicator.ValueType.choices
+    )
+    observation = AreaIndicatorObservationSerializer(allow_null=True)
+
+
 class RecommendationsQuerySerializer(serializers.Serializer[dict[str, Any]]):
     """
     Serializer that handles validation for the request parameters.
@@ -78,6 +126,10 @@ class RecommendationsQuerySerializer(serializers.Serializer[dict[str, Any]]):
         required=False,
     )
     category = serializers.CharField(required=False)
+    category_group = serializers.ChoiceField(
+        choices=PlaceCategory.Group.choices,
+        required=False,
+    )
 
     @override
     def validate(self, attrs: dict[str, Any]) -> dict[str, Any]:
@@ -91,6 +143,14 @@ class RecommendationsQuerySerializer(serializers.Serializer[dict[str, Any]]):
         ):
             raise serializers.ValidationError(
                 {"search_radius": "Use only one search radius value."}
+            )
+
+        if (
+            attrs.get("category") is not None
+            and attrs.get("category_group") is not None
+        ):
+            raise serializers.ValidationError(
+                {"category_group": "Use either category or category group."}
             )
 
         return attrs
@@ -114,9 +174,12 @@ class RecommendationsQuerySerializer(serializers.Serializer[dict[str, Any]]):
         }
 
         category = validated_data.get("category")
+        category_group = validated_data.get("category_group")
 
         if category is not None:
             query_params["category"] = cast(str, category)
+        if category_group is not None:
+            query_params["category_group"] = cast(str, category_group)
 
         return query_params
 

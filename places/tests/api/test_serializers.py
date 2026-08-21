@@ -40,6 +40,39 @@ def test_recommendations_query_serializer_accepts_optional_filters():
     }
 
 
+def test_recommendations_query_serializer_accepts_optional_category_group():
+    serializer = RecommendationsQuerySerializer(
+        data={
+            "lat": "50.1101038",
+            "lng": "8.6771586",
+            "search_radius": "250",
+            "category_group": "mobility",
+        }
+    )
+
+    assert serializer.is_valid()
+    assert serializer.to_query_params() == {
+        "lat": 50.1101038,
+        "lng": 8.6771586,
+        "search_radius": 250,
+        "category_group": "mobility",
+    }
+
+
+def test_recommendations_query_serializer_rejects_category_and_group():
+    serializer = RecommendationsQuerySerializer(
+        data={
+            "lat": "50.1101038",
+            "lng": "8.6771586",
+            "category": "parking",
+            "category_group": "mobility",
+        }
+    )
+
+    assert not serializer.is_valid()
+    assert "category_group" in serializer.errors
+
+
 def test_recommendations_query_serializer_accepts_legacy_radius_alias():
     serializer = RecommendationsQuerySerializer(
         data={

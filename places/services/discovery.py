@@ -28,6 +28,7 @@ def create_area_scan(
     radius: int,
     user_id: int | None,
     category: str | None = None,
+    category_group: str | None = None,
 ) -> AreaScan:
     return AreaScan.objects.create(
         user_id=user_id,
@@ -35,7 +36,7 @@ def create_area_scan(
         center=build_point(latitude=latitude, longitude=longitude),
         radius=radius,
         category=category or "",
-        category_group=category_group_for_slug(category),
+        category_group=category_group or category_group_for_slug(category),
     )
 
 
@@ -204,18 +205,22 @@ def upsert_discovered_places(
 
 def nearby_places(
     *,
+    service_area: ServiceArea,
     latitude: float,
     longitude: float,
     radius: int,
     category: str | None = None,
+    category_group: str | None = None,
 ) -> QuerySet[DiscoveredPlace]:
     center = build_point(latitude=latitude, longitude=longitude)
     places = DiscoveredPlace.objects.filter(
-        location__distance_lte=(center, D(m=radius))
+        service_area=service_area, location__distance_lte=(center, D(m=radius))
     )
 
     if category:
         places = places.filter(category=category)
+    elif category_group:
+        places = places.filter(category_group=category_group)
 
     return places.annotate(distance=Distance("location", center)).order_by(
         "distance",
