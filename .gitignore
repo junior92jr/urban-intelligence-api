@@ -130,7 +130,7 @@ dmypy.json
 # End of https://www.gitignore.io/api/django
 cios-unity-frontend/
 
-.vscode/
+# .vscode/
 .idea/
 .DS_Store
 
