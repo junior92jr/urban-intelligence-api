@@ -39,11 +39,6 @@ RUN uv sync --frozen --no-dev
 
 FROM builder AS development
 
-RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-        nodejs \
-    && rm -rf /var/lib/apt/lists/*
-
 RUN uv sync --frozen --all-groups
 
 COPY . .

@@ -36,7 +36,6 @@ services:
       web:
         condition: service_healthy
     networks:
-      - frontend
       - backend
     restart: unless-stopped
 
@@ -50,6 +49,3 @@ services:
 
 volumes:
   staticfiles:
-
-networks:
-  frontend:
