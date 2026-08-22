@@ -3,7 +3,7 @@ from django.core.exceptions import ValidationError
 from django.utils import timezone
 
 from geo.models import ServiceArea
-from places.models import (
+from intelligence.models import (
     AreaIndicatorObservation,
     IntelligenceIndicator,
     IntelligenceSource,
@@ -12,7 +12,7 @@ from places.models import (
 pytestmark = pytest.mark.django_db
 
 
-def test_intelligence_catalog_contains_the_area_indicator_groups():
+def test_intelligence_catalog_contains_the_area_indicator_groups() -> None:
     assert set(IntelligenceIndicator.objects.values_list("group", flat=True)) == {
         "mobility",
         "urban_environment",
@@ -29,7 +29,7 @@ def test_intelligence_catalog_contains_the_area_indicator_groups():
     )
 
 
-def test_area_indicator_observation_supports_scores_and_trends():
+def test_area_indicator_observation_supports_scores_and_trends() -> None:
     observation = AreaIndicatorObservation(
         service_area=ServiceArea.objects.get(slug="frankfurt-am-main"),
         indicator=IntelligenceIndicator.objects.get(slug="walkability"),
@@ -46,7 +46,7 @@ def test_area_indicator_observation_supports_scores_and_trends():
     assert observation.trend == ""
 
 
-def test_area_indicator_observation_requires_a_score_or_trend():
+def test_area_indicator_observation_requires_a_score_or_trend() -> None:
     observation = AreaIndicatorObservation(
         service_area=ServiceArea.objects.get(slug="frankfurt-am-main"),
         indicator=IntelligenceIndicator.objects.get(slug="traffic"),
