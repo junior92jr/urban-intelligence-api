@@ -39,3 +39,7 @@ jobs:
         run: |
           DJANGO_ENV_FILE=.env.docker.example docker compose --env-file .env.docker.example config --quiet
           DJANGO_ENV_FILE=.env.prod.example docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod.example config --quiet
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose --env-file .env.docker.example logs
