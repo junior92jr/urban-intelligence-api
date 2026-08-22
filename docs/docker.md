@@ -56,6 +56,34 @@ make shell
 make down
 ```
 
+## Local Database Backup and Restore
+
+Create a compressed PostgreSQL backup before experimenting with migrations:
+
+```bash
+make db-backup
+```
+
+The backup is written to the ignored `backups/` directory. To choose the filename:
+
+```bash
+make db-backup BACKUP=backups/before-location-migration.dump
+```
+
+Restore a backup with an explicit confirmation. This replaces the local Docker database and temporarily stops the web and worker services while the restore runs:
+
+```bash
+make db-restore BACKUP=backups/before-location-migration.dump CONFIRM_RESTORE=yes
+```
+
+To restore the most recently modified backup in `backups/`:
+
+```bash
+make db-restore-latest CONFIRM_RESTORE=yes
+```
+
+These commands only run with `.env.docker`-style development environment files and cannot target production.
+
 Run one-off commands inside the development `web` container:
 
 ```bash

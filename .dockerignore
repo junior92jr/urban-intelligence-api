@@ -10,6 +10,7 @@
 .ruff_cache
 .venv
 __pycache__
+backups
 db.sqlite3
 htmlcov
 staticfiles

@@ -1,4 +1,4 @@
-.PHONY: nothing venv up down logs shell manage migrate migrations fix check test
+.PHONY: nothing venv up down logs shell manage migrate migrations fix check test db-backup db-restore db-restore-latest
 
 DOCKER_ENV ?= .env.docker
 DOCKER = DJANGO_ENV_FILE=$(DOCKER_ENV) docker compose --env-file $(DOCKER_ENV)
@@ -45,6 +45,15 @@ test:
 	$(DOCKER) run --rm web pytest -v \
 		--cov-branch \
 		--cov-report=term-missing:skip-covered
+
+db-backup:
+	DOCKER_ENV=$(DOCKER_ENV) scripts/db.sh backup $(BACKUP)
+
+db-restore:
+	DOCKER_ENV=$(DOCKER_ENV) CONFIRM_RESTORE=$(CONFIRM_RESTORE) scripts/db.sh restore $(BACKUP)
+
+db-restore-latest:
+	DOCKER_ENV=$(DOCKER_ENV) CONFIRM_RESTORE=$(CONFIRM_RESTORE) scripts/db.sh restore-latest
 
 %:
 	@:
