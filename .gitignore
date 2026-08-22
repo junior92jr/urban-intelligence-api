@@ -144,3 +144,6 @@ django_cache/
 
 #DB sql
 *.sqlite3
+
+# Local database backups
+backups/
