@@ -180,6 +180,12 @@ class DataImport(models.Model):
         COMPLETED = "completed", "Completed"
         FAILED = "failed", "Failed"
 
+    class Layer(models.TextChoices):
+        AMENITIES = "amenities", "Amenities"
+        DAILY_LIFE = "daily_life", "Daily life"
+        MOBILITY = "mobility", "Mobility"
+        GREEN = "green", "Green spaces"
+
     source = models.CharField(
         max_length=32,
         choices=Source.choices,
@@ -190,9 +196,10 @@ class DataImport(models.Model):
         on_delete=models.CASCADE,
         related_name="data_imports",
     )
-    category_group = models.CharField(
+    layer = models.CharField(
         max_length=32,
-        choices=PlaceCategory.Group.choices,
+        choices=Layer.choices,
+        default=Layer.AMENITIES,
     )
     radius = models.PositiveIntegerField(default=8000)
     requested_by = models.ForeignKey(
@@ -226,7 +233,8 @@ class DataImport(models.Model):
 
     @override
     def __str__(self) -> str:
-        return f"{self.source} import for {self.service_area}"
+        layer_name = dict(self.Layer.choices).get(self.layer, self.layer)
+        return f"{layer_name} import for {self.service_area}"
 
 
 class IntelligenceSource(models.Model):

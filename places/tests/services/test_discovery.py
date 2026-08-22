@@ -195,11 +195,11 @@ def test_run_scan_updates_scan_status_and_persists_results():
     assert DiscoveredPlace.objects.filter(name="Good Food").exists()
 
 
-def test_run_data_import_updates_status_and_persists_requested_group_results():
+def test_run_data_import_updates_status_and_persists_requested_layer_results():
     service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
     data_import = DataImport.objects.create(
         service_area=service_area,
-        category_group="food",
+        layer=DataImport.Layer.AMENITIES,
         radius=8000,
     )
     response = OpenStreetMapApiResponse.from_api_response(

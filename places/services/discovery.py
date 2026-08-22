@@ -6,6 +6,7 @@ from django.utils import timezone
 from geo.models import ServiceArea, build_point
 from places.models import AreaScan, DataImport, DiscoveredPlace
 from places.services.categories import get_category_by_slug
+from places.services.layers import get_layer_filter, place_matches_layer
 from places.services.mappers import OpenStreetMapPlace
 from places.services.open_street_map import PlaceQueryParams
 from places.services.search import search_places_by_location
@@ -122,18 +123,21 @@ def run_data_import(data_import: DataImport) -> int:
         ],
     )
 
-    response = search_places_by_location(
-        {
-            "lat": data_import.service_area.latitude,
-            "lng": data_import.service_area.longitude,
-            "search_radius": data_import.radius,
-            "category_group": data_import.category_group,
-        }
-    )
+    query_params: PlaceQueryParams = {
+        "lat": data_import.service_area.latitude,
+        "lng": data_import.service_area.longitude,
+        "search_radius": data_import.radius,
+    }
+    layer_filter = get_layer_filter(data_import.layer)
+    if category := layer_filter.get("category"):
+        query_params["category"] = category
+    if category_group := layer_filter.get("category_group"):
+        query_params["category_group"] = category_group
+    response = search_places_by_location(query_params)
     places = [
         place
         for place in response.places
-        if category_group_for_slug(place.category) == data_import.category_group
+        if place_matches_layer(place, data_import.layer)
     ]
     result_count = upsert_discovered_places(
         service_area=data_import.service_area,
