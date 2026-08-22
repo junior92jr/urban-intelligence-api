@@ -27,3 +27,5 @@ services:
   db:
     env_file:
       - ${DJANGO_ENV_FILE:-.env.docker}
+    ports:
+      - "5433:5432"
