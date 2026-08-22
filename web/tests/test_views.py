@@ -522,7 +522,7 @@ def test_data_imports_page_renders_for_staff_user(api_client: APIClient) -> None
     service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
     DataImport.objects.create(
         service_area=service_area,
-        category_group="food",
+        layer=DataImport.Layer.AMENITIES,
         radius=8000,
         requested_by=user,
         result_count=12,
@@ -535,6 +535,8 @@ def test_data_imports_page_renders_for_staff_user(api_client: APIClient) -> None
     assert b"Data Imports" in response.content
     assert b"OpenStreetMap" in response.content
     assert b"Start city import" in response.content
+    assert b"Map layer" in response.content
+    assert b"Green spaces" in response.content
     assert b"Recent imports" in response.content
     assert b"Frankfurt am Main" in response.content
     assert b"12 places" in response.content
@@ -559,7 +561,7 @@ def test_data_imports_page_starts_open_street_map_import(
         reverse("web:data_imports"),
         {
             "service_area": str(service_area.pk),
-            "category_group": "food",
+            "layer": "amenities",
             "radius": "8000",
         },
     )
@@ -570,7 +572,7 @@ def test_data_imports_page_starts_open_street_map_import(
     assert data_import.source == DataImport.Source.OPEN_STREET_MAP
     assert data_import.status == DataImport.Status.PENDING
     assert data_import.service_area == service_area
-    assert data_import.category_group == "food"
+    assert data_import.layer == DataImport.Layer.AMENITIES
     assert data_import.radius == 8000
     assert data_import.requested_by == user
 

@@ -13,7 +13,7 @@ from accounts.services.registration import (
     reset_password,
 )
 from geo.models import ServiceArea, build_point
-from places.models import DataImport, PlaceCategory
+from places.models import DataImport
 
 
 class EmailAuthenticationForm(AuthenticationForm):
@@ -193,7 +193,7 @@ class LocationPreferencesForm(forms.Form):
 class DataImportForm(forms.ModelForm):  # type: ignore[type-arg]
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
         model = DataImport
-        fields = ("source", "service_area", "category_group", "radius")
+        fields = ("source", "service_area", "layer", "radius")
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -211,12 +211,6 @@ class DataImportForm(forms.ModelForm):  # type: ignore[type-arg]
             is_active=True,
             country__is_active=True,
         )
-
-        category_group_field = cast(
-            forms.ChoiceField,
-            self.fields["category_group"],
-        )
-        category_group_field.choices = PlaceCategory.Group.choices
 
     @override
     def save(self, commit: bool = True) -> DataImport:

@@ -15,7 +15,7 @@
           <div>
             <p class="eyebrow">Operations</p>
             <h1>Data Imports</h1>
-            <p>Load OpenStreetMap data for supported cities and category groups.</p>
+            <p>Load OpenStreetMap data for supported cities and map layers.</p>
           </div>
         </header>
 
@@ -46,9 +46,9 @@
             </label>
 
             <label class="field">
-              <span>Category group</span>
-              {{ form.category_group }}
-              {{ form.category_group.errors }}
+              <span>Map layer</span>
+              {{ form.layer }}
+              {{ form.layer.errors }}
             </label>
 
             <label class="field">
@@ -77,7 +77,7 @@
               <li class="import-item">
                 <div>
                   <strong>{{ data_import.service_area.name }}</strong>
-                  <span>{{ data_import.get_source_display }} · {{ data_import.get_category_group_display }} · {{ data_import.radius }} m</span>
+                  <span>{{ data_import.get_source_display }} · {{ data_import.get_layer_display }} · {{ data_import.radius }} m</span>
                 </div>
                 <div class="import-meta">
                   <span class="status-pill status-pill--{{ data_import.status }}">{{ data_import.get_status_display }}</span>
