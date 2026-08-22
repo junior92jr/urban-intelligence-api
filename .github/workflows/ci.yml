@@ -14,17 +14,17 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v5
+        uses: astral-sh/setup-uv@v10.0.1
         with:
           enable-cache: true
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v7
         with:
-          python-version: "3.13"
+          python-version: "3.14"
 
       - name: Install dependencies
         run: make venv
@@ -39,3 +39,7 @@ jobs:
         run: |
           DJANGO_ENV_FILE=.env.docker.example docker compose --env-file .env.docker.example config --quiet
           DJANGO_ENV_FILE=.env.prod.example docker compose -f compose.yml -f compose.prod.yml --env-file .env.prod.example config --quiet
+
+      - name: Show Docker logs on failure
+        if: failure()
+        run: docker compose --env-file .env.docker.example logs
