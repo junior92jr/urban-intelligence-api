@@ -28,6 +28,10 @@ def test_intelligence_catalog_contains_the_area_indicator_groups() -> None:
     assert (
         IntelligenceSource.objects.get(slug="open-street-map").name == "OpenStreetMap"
     )
+    assert (
+        IntelligenceSource.objects.get(slug="copernicus-land-monitoring").name
+        == "Copernicus Land Monitoring Service"
+    )
 
 
 def test_area_indicator_observation_supports_scores_and_trends() -> None:

@@ -135,6 +135,10 @@ class AreaIndicatorObservation(models.Model):
                 condition=models.Q(score__isnull=False) | ~models.Q(trend=""),
                 name="area_indicator_has_value",
             ),
+            models.UniqueConstraint(
+                fields=("service_area", "indicator", "source", "observed_at"),
+                name="area_indicator_source_date_uq",
+            ),
         ]
 
     @override

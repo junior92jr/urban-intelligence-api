@@ -25,7 +25,8 @@ Service-specific configuration lives under `docker/`.
 
 ## Development
 
-Docker development runs Django with PostgreSQL/PostGIS, Redis, and a Celery worker:
+Docker development runs Django with PostgreSQL/PostGIS, Redis, MinIO object
+storage, and a Celery worker:
 
 ```bash
 cp .env.docker.example .env.docker
@@ -45,6 +46,16 @@ Open:
 ```text
 http://localhost:8000/
 ```
+
+The local MinIO console is available at:
+
+```text
+http://localhost:9001/
+```
+
+It creates the `city-guide-data` bucket from `.env.docker` automatically. Its
+credentials and the corresponding Django S3-compatible storage settings are
+shown in `.env.docker.example`.
 
 Useful commands:
 

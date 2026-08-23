@@ -28,6 +28,28 @@ env = environ.Env(
     OPEN_STREET_MAP_USER_AGENT=(str, "city-guide-api-demo"),
     OPEN_STREET_MAP_TIMEOUT_IN_SECS=(float, 20.0),
     OPEN_STREET_MAP_MAX_RETRIES=(int, 3),
+    OBJECT_STORAGE_ENDPOINT_URL=(str, ""),
+    OBJECT_STORAGE_ACCESS_KEY_ID=(str, ""),
+    OBJECT_STORAGE_SECRET_ACCESS_KEY=(str, ""),
+    OBJECT_STORAGE_REGION=(str, "us-east-1"),
+    OBJECT_STORAGE_BUCKET=(str, ""),
+    OBJECT_STORAGE_TIMEOUT_IN_SECS=(float, 120.0),
+    COPERNICUS_S3_ENDPOINT_URL=(
+        str,
+        "https://eodata.dataspace.copernicus.eu",
+    ),
+    COPERNICUS_S3_ACCESS_KEY_ID=(str, ""),
+    COPERNICUS_S3_SECRET_ACCESS_KEY=(str, ""),
+    COPERNICUS_S3_REGION=(str, "default"),
+    COPERNICUS_TREE_COVER_DENSITY_CATALOG_URL=(
+        str,
+        (
+            "https://s3.waw3-1.cloudferro.com/swift/v1/CatalogueCSV/"
+            "landcover_landuse/tree_cover_density/"
+            "clms_vlcc_tree-cover-density_europe_100m_yearly_v1/"
+            "clms_vlcc_tree-cover-density_europe_100m_yearly_v1_cog.csv"
+        ),
+    ),
     MAP_TILE_URL=(
         str,
         "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
@@ -94,6 +116,20 @@ if not CACHE_LOCATION.is_absolute():
     CACHE_LOCATION = BASE_DIR / CACHE_LOCATION
 
 REDIS_URL = env("REDIS_URL")
+
+OBJECT_STORAGE_ENDPOINT_URL = env("OBJECT_STORAGE_ENDPOINT_URL")
+OBJECT_STORAGE_ACCESS_KEY_ID = env("OBJECT_STORAGE_ACCESS_KEY_ID")
+OBJECT_STORAGE_SECRET_ACCESS_KEY = env("OBJECT_STORAGE_SECRET_ACCESS_KEY")
+OBJECT_STORAGE_REGION = env("OBJECT_STORAGE_REGION")
+OBJECT_STORAGE_BUCKET = env("OBJECT_STORAGE_BUCKET")
+OBJECT_STORAGE_TIMEOUT_IN_SECS = env("OBJECT_STORAGE_TIMEOUT_IN_SECS")
+COPERNICUS_S3_ENDPOINT_URL = env("COPERNICUS_S3_ENDPOINT_URL")
+COPERNICUS_S3_ACCESS_KEY_ID = env("COPERNICUS_S3_ACCESS_KEY_ID")
+COPERNICUS_S3_SECRET_ACCESS_KEY = env("COPERNICUS_S3_SECRET_ACCESS_KEY")
+COPERNICUS_S3_REGION = env("COPERNICUS_S3_REGION")
+COPERNICUS_TREE_COVER_DENSITY_CATALOG_URL = env(
+    "COPERNICUS_TREE_COVER_DENSITY_CATALOG_URL"
+)
 
 
 # Applications

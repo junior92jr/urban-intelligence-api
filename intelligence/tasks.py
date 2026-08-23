@@ -4,6 +4,8 @@ from celery import Task, shared_task
 
 from intelligence.models import IntelligenceImport
 from intelligence.services.imports import (
+    IntelligenceImportConfigurationError,
+    IntelligenceImporterNotConfigured,
     IntelligenceProviderUnavailable,
     fail_intelligence_import,
 )
@@ -45,6 +47,11 @@ def run_intelligence_import(self: Task, intelligence_import_id: int) -> None:
 
         fail_intelligence_import(intelligence_import, exc)
         raise
+    except (
+        IntelligenceImportConfigurationError,
+        IntelligenceImporterNotConfigured,
+    ) as exc:
+        fail_intelligence_import(intelligence_import, exc)
     except Exception as exc:
         fail_intelligence_import(intelligence_import, exc)
         raise

@@ -1,6 +1,7 @@
 from typing import Any, cast, override
 
 from django import forms
+from django.conf import settings
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.password_validation import validate_password
 from django.core.exceptions import ValidationError
@@ -248,6 +249,50 @@ class IntelligenceImportForm(forms.ModelForm):  # type: ignore[type-arg]
             is_active=True,
             country__is_active=True,
         )
+
+    @override
+    def clean(self) -> dict[str, object] | None:
+        cleaned_data = super().clean()
+        if cleaned_data is None:
+            return None
+
+        dataset = cleaned_data.get("dataset")
+        service_area = cleaned_data.get("service_area")
+        if not isinstance(dataset, IntelligenceDataset) or not isinstance(
+            service_area,
+            ServiceArea,
+        ):
+            return cleaned_data
+
+        is_tree_cover_density = (
+            dataset.source.slug == "copernicus-land-monitoring"
+            and dataset.slug == "tree-cover-density-100m"
+        )
+        if is_tree_cover_density and service_area.boundary is None:
+            self.add_error(
+                "service_area",
+                "This dataset requires a city boundary before it can be imported.",
+            )
+        if is_tree_cover_density and not (
+            settings.OBJECT_STORAGE_ENDPOINT_URL
+            and settings.OBJECT_STORAGE_ACCESS_KEY_ID
+            and settings.OBJECT_STORAGE_SECRET_ACCESS_KEY
+            and settings.OBJECT_STORAGE_BUCKET
+        ):
+            self.add_error(
+                "dataset",
+                "Configure cache object storage before importing this dataset.",
+            )
+        if is_tree_cover_density and not (
+            settings.COPERNICUS_S3_ACCESS_KEY_ID
+            and settings.COPERNICUS_S3_SECRET_ACCESS_KEY
+        ):
+            self.add_error(
+                "dataset",
+                "Configure Copernicus source credentials before importing this dataset.",
+            )
+
+        return cleaned_data
 
 
 def add_form_error(form: forms.Form, error: ValidationError) -> None:
