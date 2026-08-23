@@ -1,6 +1,11 @@
+from collections.abc import Iterable
 from datetime import timedelta
+from io import BytesIO
+from typing import cast
+from unittest.mock import Mock
 
 import pytest
+from django.http import StreamingHttpResponse
 from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
@@ -84,3 +89,95 @@ def test_area_intelligence_requires_a_service_area(
     assert response.json() == {
         "service_area": "Complete onboarding before viewing area intelligence."
     }
+
+
+def test_tree_cover_map_layer_returns_summary_boundary_and_private_image_urls(
+    authenticated_api_client: APIClient,
+) -> None:
+    user = User.objects.get(email="intelligence@example.com")
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    UserProfile.objects.create(user=user, service_area=service_area)
+    indicator = IntelligenceIndicator.objects.get(slug="green-exposure")
+    source = IntelligenceSource.objects.get(slug="copernicus-land-monitoring")
+    AreaIndicatorObservation.objects.create(
+        service_area=service_area,
+        indicator=indicator,
+        source=source,
+        score=20,
+        observed_at=timezone.now(),
+        details={
+            "map_layer": {
+                "title": "Tree cover",
+                "layers": [
+                    {
+                        "object_key": "copernicus/tree-cover-density/frankfurt.png",
+                        "bounds": [[50.0, 8.5], [50.2, 8.8]],
+                    }
+                ],
+            }
+        },
+    )
+
+    response = authenticated_api_client.get(
+        "/api/v1/places/area-intelligence/tree-cover-density/"
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response.json()["summary"] == (
+        "Around 20% average tree canopy cover across Frankfurt am Main."
+    )
+    assert response.json()["boundary"]["type"] == "MultiPolygon"
+    assert response.json()["layers"] == [
+        {
+            "bounds": [[50.0, 8.5], [50.2, 8.8]],
+            "image_url": (
+                "http://testserver/api/v1/places/area-intelligence/"
+                "tree-cover-density/layers/0/"
+            ),
+        }
+    ]
+
+
+def test_tree_cover_map_layer_image_streams_the_private_overlay(
+    authenticated_api_client: APIClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    user = User.objects.get(email="intelligence@example.com")
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    UserProfile.objects.create(user=user, service_area=service_area)
+    indicator = IntelligenceIndicator.objects.get(slug="green-exposure")
+    source = IntelligenceSource.objects.get(slug="copernicus-land-monitoring")
+    AreaIndicatorObservation.objects.create(
+        service_area=service_area,
+        indicator=indicator,
+        source=source,
+        score=20,
+        observed_at=timezone.now(),
+        details={
+            "map_layer": {
+                "layers": [
+                    {
+                        "object_key": "copernicus/tree-cover-density/frankfurt.png",
+                        "bounds": [[50.0, 8.5], [50.2, 8.8]],
+                    }
+                ]
+            }
+        },
+    )
+    storage_client = Mock()
+    storage_client.get_object.return_value = {"Body": BytesIO(b"tree-cover-png")}
+    monkeypatch.setattr(
+        "intelligence.views.get_cache_storage_client",
+        lambda: storage_client,
+    )
+
+    response = authenticated_api_client.get(
+        "/api/v1/places/area-intelligence/tree-cover-density/layers/0/"
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert response["Content-Type"] == "image/png"
+    streaming_response = cast(StreamingHttpResponse, response)
+    streaming_content = cast(Iterable[bytes], streaming_response.streaming_content)
+    assert b"".join(streaming_content) == b"tree-cover-png"
+    storage_client.get_object.assert_called_once()

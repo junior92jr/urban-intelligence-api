@@ -67,10 +67,15 @@ def test_map_page_renders_search_sidebar_for_authenticated_user(
     assert b"data-favorites-url=" in response.content
     assert b"data-nearby-places-url=" in response.content
     assert b"data-area-scans-url=" in response.content
+    assert b"data-area-intelligence-url=" in response.content
+    assert b"data-tree-cover-layer-url=" in response.content
     assert b'data-realtime-refresh-enabled="false"' in response.content
     assert b'id="search-form"' in response.content
     assert b"Area Intelligence" in response.content
     assert b"Map features" in response.content
+    assert b'id="area-insights"' in response.content
+    assert b'id="tree-cover-legend"' in response.content
+    assert b'id="tree-cover-toggle-input"' in response.content
     assert b"Nearby places" in response.content
     assert b"Latitude" not in response.content
     assert b"Longitude" not in response.content
@@ -584,7 +589,7 @@ def test_data_imports_page_starts_open_street_map_import(
     assert place_import.requested_by == user
 
 
-def test_data_imports_page_shows_intelligence_empty_state(
+def test_data_imports_page_shows_configured_intelligence_dataset(
     api_client: APIClient,
 ) -> None:
     user = User.objects.create_user(
@@ -599,7 +604,7 @@ def test_data_imports_page_shows_intelligence_empty_state(
 
     assert response.status_code == status.HTTP_200_OK
     assert b"Area intelligence" in response.content
-    assert b"No area-intelligence datasets are configured yet." in response.content
+    assert b"Tree Cover Density (100 m)" in response.content
 
 
 def test_data_imports_page_starts_intelligence_import(api_client: APIClient) -> None:
@@ -637,11 +642,82 @@ def test_data_imports_page_starts_intelligence_import(api_client: APIClient) -> 
     assert intelligence_import.requested_by == user
 
 
+def test_data_imports_rejects_tree_cover_density_without_a_city_boundary(
+    api_client: APIClient,
+) -> None:
+    user = User.objects.create_user(
+        email="intelligence-imports-boundary-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+        is_staff=True,
+    )
+    api_client.force_login(user)
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    service_area.boundary = None
+    service_area.save(update_fields=["boundary"])
+    dataset = IntelligenceDataset.objects.get(slug="tree-cover-density-100m")
+
+    response = api_client.post(
+        reverse("web:data_imports"),
+        {
+            "import_type": "intelligence",
+            "dataset": str(dataset.pk),
+            "service_area": str(service_area.pk),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert b"This dataset requires a city boundary" in response.content
+    assert not IntelligenceImport.objects.filter(dataset=dataset).exists()
+
+
+@override_settings(OBJECT_STORAGE_BUCKET="")
+def test_data_imports_rejects_tree_cover_density_without_object_storage(
+    api_client: APIClient,
+) -> None:
+    user = User.objects.create_user(
+        email="intelligence-imports-storage-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+        is_staff=True,
+    )
+    api_client.force_login(user)
+    dataset = IntelligenceDataset.objects.get(slug="tree-cover-density-100m")
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+
+    response = api_client.post(
+        reverse("web:data_imports"),
+        {
+            "import_type": "intelligence",
+            "dataset": str(dataset.pk),
+            "service_area": str(service_area.pk),
+        },
+    )
+
+    assert response.status_code == status.HTTP_200_OK
+    assert (
+        b"Configure cache object storage before importing this dataset"
+        in response.content
+    )
+    assert not IntelligenceImport.objects.filter(dataset=dataset).exists()
+
+
 def test_map_app_reads_tile_url_from_template_dataset() -> None:
     app_js = APP_JS_PATH.read_text()
 
     assert "shell.dataset.tileUrl" in app_js
     assert "tile.openstreetmap.org" not in app_js
+
+
+def test_map_app_supports_the_copernicus_tree_cover_layer() -> None:
+    app_js = APP_JS_PATH.read_text()
+
+    assert "shell.dataset.treeCoverLayerUrl" in app_js
+    assert "L.imageOverlay(layer.image_url, layer.bounds" in app_js
+    assert "L.geoJSON(treeCoverMapLayer.boundary" in app_js
+    assert "treeCoverBoundary.getBounds()" in app_js
+    assert "treeCoverToggleInput?.addEventListener" in app_js
+    assert "Around ${observation.score}% average tree canopy cover" in app_js
 
 
 def test_map_app_shows_radius_circle_only_while_selecting_radius() -> None:

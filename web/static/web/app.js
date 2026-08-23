@@ -10,6 +10,12 @@ const locateButton = document.querySelector("#locate-button");
 const resetButton = document.querySelector("#reset-button");
 const statusElement = document.querySelector("#status");
 const resultsElement = document.querySelector("#results");
+const areaInsightsElement = document.querySelector("#area-insights");
+const areaInsightsTitleElement = document.querySelector("#area-insights-title");
+const areaInsightsContentElement = document.querySelector("#area-insights-content");
+const treeCoverLegendElement = document.querySelector("#tree-cover-legend");
+const treeCoverToggleElement = document.querySelector("#tree-cover-toggle");
+const treeCoverToggleInput = document.querySelector("#tree-cover-toggle-input");
 const favoriteResultsElement = document.querySelector("#favorite-results");
 const historyResultsElement = document.querySelector("#history-results");
 const navToggleButton = document.querySelector(".rail-toggle");
@@ -37,6 +43,8 @@ const placeIcon = mapElement ? createMarkerIcon("#126b5a", [28, 40]) : null;
 const favoritePlaceIcon = mapElement ? createHeartMarkerIcon("#c56a2c") : null;
 const map = mapElement ? L.map("map").setView(defaultCenter, 13) : null;
 const resultMarkers = map ? L.layerGroup().addTo(map) : null;
+const treeCoverLayers = map ? L.layerGroup() : null;
+const treeCoverBoundary = map ? L.featureGroup() : null;
 let selectedMarker = null;
 let radiusCircle = null;
 let currentSearchController = null;
@@ -44,6 +52,7 @@ let currentRefreshController = null;
 let currentSearchKey = "";
 let favoriteOsmUids = new Set();
 let activePlaceItem = null;
+let treeCoverMapLayer = null;
 
 if (map !== null) {
   L.tileLayer(shell.dataset.tileUrl, {
@@ -62,6 +71,7 @@ if (form !== null) {
     searchPlaces();
   }
   loadFavorites();
+  loadAreaInsights();
 }
 
 if (favoriteResultsElement !== null) {
@@ -107,6 +117,10 @@ radiusInput?.addEventListener("blur", () => {
 
 mapLayerSelect?.addEventListener("change", () => {
   searchPlaces();
+});
+
+treeCoverToggleInput?.addEventListener("change", () => {
+  updateTreeCoverVisibility();
 });
 
 form?.addEventListener("submit", async (event) => {
@@ -183,6 +197,174 @@ async function loadFavorites() {
     favoriteOsmUids = new Set(favorites.map((favorite) => favorite.osm_uid));
   } catch {
     favoriteOsmUids = new Set();
+  }
+}
+
+async function loadAreaInsights() {
+  if (areaInsightsElement === null || areaInsightsContentElement === null) {
+    return;
+  }
+
+  areaInsightsElement.hidden = false;
+  areaInsightsElement.dataset.state = "loading";
+  renderAreaInsightSkeletons();
+
+  try {
+    const response = await fetch(shell.dataset.areaIntelligenceUrl);
+    if (!response.ok) {
+      throw new Error("Area intelligence request failed.");
+    }
+
+    const payload = await response.json();
+    renderAreaInsights(payload);
+    loadTreeCoverMapLayer();
+  } catch {
+    areaInsightsElement.hidden = true;
+  }
+}
+
+function renderAreaInsights(payload) {
+  const groups = payload.groups ?? [];
+  const indicators = groups.flatMap((group) => group.indicators ?? []);
+
+  if (indicators.length === 0) {
+    areaInsightsElement.hidden = true;
+    return;
+  }
+
+  areaInsightsTitleElement.textContent = payload.service_area?.name ?? "Your area";
+  areaInsightsContentElement.replaceChildren();
+
+  groups.forEach((group) => {
+    const groupElement = document.createElement("section");
+    groupElement.className = "insight-group";
+
+    const groupTitle = document.createElement("h3");
+    groupTitle.textContent = group.name;
+    groupElement.append(groupTitle);
+
+    group.indicators.forEach((indicator) => {
+      groupElement.append(createAreaInsight(indicator));
+    });
+
+    areaInsightsContentElement.append(groupElement);
+  });
+
+  areaInsightsElement.dataset.state = "ready";
+  areaInsightsElement.hidden = false;
+}
+
+function createAreaInsight(indicator) {
+  const observation = indicator.observation;
+  const item = document.createElement("div");
+  item.className = "insight-item";
+  item.title = formatInsightSource(observation);
+
+  const name = document.createElement("span");
+  name.className = "insight-name";
+  name.textContent = indicator.name;
+
+  const value = document.createElement("strong");
+  value.className = "insight-value";
+  value.textContent = formatInsightValue(indicator, observation);
+
+  item.append(name, value);
+  if (indicator.slug === "green-exposure" && observation.score !== null) {
+    item.classList.add("insight-item--tree-cover");
+    name.textContent = "Tree cover";
+
+    const summary = document.createElement("span");
+    summary.className = "insight-summary";
+    summary.textContent = `Around ${observation.score}% average tree canopy cover across ${areaInsightsTitleElement.textContent}.`;
+    item.append(summary);
+  }
+  return item;
+}
+
+function formatInsightValue(indicator, observation) {
+  if (indicator.value_type === "trend") {
+    return { up: "Up", steady: "Steady", down: "Down" }[observation.trend] ?? "-";
+  }
+
+  return observation.score === null ? "-" : `${observation.score}%`;
+}
+
+async function loadTreeCoverMapLayer() {
+  if (treeCoverToggleElement === null) {
+    return;
+  }
+
+  try {
+    const response = await fetch(shell.dataset.treeCoverLayerUrl);
+    if (!response.ok) {
+      throw new Error("Tree cover map layer request failed.");
+    }
+
+    treeCoverMapLayer = await response.json();
+    treeCoverToggleElement.hidden = false;
+  } catch {
+    treeCoverMapLayer = null;
+    treeCoverToggleElement.hidden = true;
+    treeCoverToggleInput.checked = false;
+    updateTreeCoverVisibility();
+  }
+}
+
+function updateTreeCoverVisibility() {
+  const isSelected = treeCoverToggleInput?.checked === true;
+  treeCoverLayers.clearLayers();
+  treeCoverBoundary.clearLayers();
+  treeCoverLegendElement.hidden = true;
+
+  if (!isSelected || treeCoverMapLayer === null) {
+    return;
+  }
+
+  treeCoverMapLayer.layers.forEach((layer) => {
+    L.imageOverlay(layer.image_url, layer.bounds, {
+      opacity: 0.76,
+      interactive: false,
+    }).addTo(treeCoverLayers);
+  });
+  L.geoJSON(treeCoverMapLayer.boundary, {
+    style: {
+      color: "#126b5a",
+      weight: 2,
+      fill: false,
+    },
+    interactive: false,
+  }).addTo(treeCoverBoundary);
+  treeCoverLayers.addTo(map);
+  treeCoverBoundary.addTo(map);
+  treeCoverLegendElement.hidden = false;
+
+  const bounds = treeCoverBoundary.getBounds();
+  if (bounds.isValid()) {
+    map.fitBounds(bounds, { padding: [36, 36] });
+  }
+}
+
+function formatInsightSource(observation) {
+  const source = observation.source?.name;
+  const observedAt = observation.observed_at ? new Date(observation.observed_at) : null;
+  const date = observedAt && !Number.isNaN(observedAt.valueOf())
+    ? observedAt.toLocaleDateString(undefined, { year: "numeric", month: "short" })
+    : null;
+
+  return [source, date].filter(Boolean).join(" · ");
+}
+
+function renderAreaInsightSkeletons() {
+  areaInsightsContentElement.replaceChildren();
+
+  for (let index = 0; index < 2; index += 1) {
+    const item = document.createElement("div");
+    item.className = "insight-item insight-item--skeleton";
+    item.innerHTML = `
+      <span class="insight-skeleton insight-skeleton--name"></span>
+      <span class="insight-skeleton insight-skeleton--value"></span>
+    `;
+    areaInsightsContentElement.append(item);
   }
 }
 

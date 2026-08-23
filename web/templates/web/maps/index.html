@@ -15,6 +15,8 @@
       data-places-url="/api/v1/places/"
       data-nearby-places-url="/api/v1/places/nearby/"
       data-area-scans-url="/api/v1/places/area-scans/"
+      data-area-intelligence-url="{% url 'places:area-intelligence' %}"
+      data-tree-cover-layer-url="{% url 'places:tree-cover-density-map-layer' %}"
       data-favorites-url="/api/v1/user-places/favorites/"
       data-map-url="{% url 'web:map' %}"
       data-tile-url="{{ map_tile_url }}"
@@ -39,6 +41,21 @@
             <span>{{ request.user.email }}</span>
             <a href="{% url 'web:profile' %}">Profile</a>
           </div>
+
+          <section class="area-insights" id="area-insights" hidden aria-live="polite">
+            <div class="area-insights-header">
+              <div>
+                <p class="eyebrow">Area insights</p>
+                <h2 id="area-insights-title">Your area</h2>
+              </div>
+              <span class="area-insights-status" id="area-insights-status" aria-label="Loading area insights"></span>
+            </div>
+            <div class="area-insights-content" id="area-insights-content"></div>
+            <label class="tree-cover-toggle" id="tree-cover-toggle" hidden>
+              <span>Show tree cover on map</span>
+              <input id="tree-cover-toggle-input" type="checkbox">
+            </label>
+          </section>
 
           <form class="search-form feature-form" id="search-form">
             <input id="lat" name="lat" type="hidden">
@@ -120,6 +137,11 @@
 
       <section class="map-panel" aria-label="Map">
         <div id="map"></div>
+        <aside class="map-legend" id="tree-cover-legend" hidden aria-label="Tree cover legend">
+          <strong>Tree cover</strong>
+          <span class="map-legend-scale" aria-hidden="true"></span>
+          <div><span>Less</span><span>More</span></div>
+        </aside>
       </section>
     </main>
 {% endblock %}
