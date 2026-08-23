@@ -1,8 +1,9 @@
 from django.urls import path
 from rest_framework.routers import DefaultRouter
 
+from intelligence.views import AreaIntelligenceView
+
 from .views import (
-    AreaIntelligenceView,
     AreaScanCreateView,
     AreaScanDetailView,
     CategoryViewSet,

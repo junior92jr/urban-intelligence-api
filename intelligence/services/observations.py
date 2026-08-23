@@ -1,7 +1,7 @@
 from collections.abc import Iterable
 
 from geo.models import ServiceArea
-from places.models import AreaIndicatorObservation, IntelligenceIndicator
+from intelligence.models import AreaIndicatorObservation, IntelligenceIndicator
 
 
 def get_area_intelligence(

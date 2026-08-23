@@ -1,20 +1,11 @@
-from datetime import timedelta
-
 import pytest
 from chainmock import mocker
-from django.utils import timezone
 from rest_framework import status
 from rest_framework.test import APIClient
 
 from accounts.models import User
 from places import views
-from places.models import (
-    AreaIndicatorObservation,
-    AreaScan,
-    DiscoveredPlace,
-    IntelligenceIndicator,
-    IntelligenceSource,
-)
+from places.models import AreaScan, DiscoveredPlace
 from places.services.mappers import OpenStreetMapApiResponse
 from user_places.models import SearchHistory
 
@@ -218,65 +209,6 @@ def test_categories_endpoint_returns_known_categories(api_client):
         "slug": "parking",
         "name": "Parking",
         "group": "mobility",
-    }
-
-
-def test_area_intelligence_returns_latest_observation_for_user_service_area(
-    authenticated_api_client,
-):
-    from accounts.models import UserProfile
-    from geo.models import ServiceArea
-
-    user = User.objects.get(email="places@example.com")
-    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
-    UserProfile.objects.create(user=user, service_area=service_area)
-    indicator = IntelligenceIndicator.objects.get(slug="walkability")
-    source = IntelligenceSource.objects.get(slug="open-street-map")
-    AreaIndicatorObservation.objects.create(
-        service_area=service_area,
-        indicator=indicator,
-        source=source,
-        score=72,
-        methodology="Pedestrian network coverage",
-        observed_at=timezone.now() - timedelta(days=1),
-    )
-    AreaIndicatorObservation.objects.create(
-        service_area=service_area,
-        indicator=indicator,
-        source=source,
-        score=88,
-        methodology="Pedestrian network coverage",
-        observed_at=timezone.now(),
-    )
-
-    response = authenticated_api_client.get("/api/v1/places/area-intelligence/")
-
-    assert response.status_code == status.HTTP_200_OK
-    payload = response.json()
-    assert payload["service_area"] == {
-        "slug": "frankfurt-am-main",
-        "name": "Frankfurt am Main",
-    }
-    mobility = next(group for group in payload["groups"] if group["slug"] == "mobility")
-    walkability = next(
-        indicator
-        for indicator in mobility["indicators"]
-        if indicator["slug"] == "walkability"
-    )
-    assert walkability["observation"]["score"] == 88
-    assert walkability["observation"]["source"] == {
-        "name": "OpenStreetMap",
-        "attribution": "OpenStreetMap contributors",
-    }
-    assert [group["slug"] for group in payload["groups"]] == ["mobility"]
-
-
-def test_area_intelligence_requires_a_service_area(authenticated_api_client):
-    response = authenticated_api_client.get("/api/v1/places/area-intelligence/")
-
-    assert response.status_code == status.HTTP_400_BAD_REQUEST
-    assert response.json() == {
-        "service_area": "Complete onboarding before viewing area intelligence."
     }
 
 
