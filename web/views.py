@@ -16,15 +16,18 @@ from django.views.generic import FormView, TemplateView
 
 from accounts.models import User, UserProfile
 from accounts.services.registration import activate_account
-from places.models import DataImport
+from intelligence.models import IntelligenceDataset, IntelligenceImport
+from intelligence.tasks import run_intelligence_import
+from places.models import PlaceImport
 from places.services.discovery import create_area_scan
-from places.tasks import run_area_scan, run_data_import
+from places.tasks import run_area_scan, run_place_import
 from web.emails import send_activation_email, send_password_reset_email
 from web.forms import (
-    DataImportForm,
     EmailAuthenticationForm,
     ForgotPasswordForm,
+    IntelligenceImportForm,
     LocationPreferencesForm,
+    PlaceImportForm,
     RegistrationForm,
     ResetPasswordForm,
     add_form_error,
@@ -297,8 +300,7 @@ class HistoryView(LoginRequiredMixin, TemplateView):
         return context
 
 
-class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, FormView):  # type: ignore[type-arg]
-    form_class = DataImportForm
+class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
     template_name = "web/data_imports/index.html"
     login_url = reverse_lazy("web:login")
     success_url = reverse_lazy("web:data_imports")
@@ -312,7 +314,29 @@ class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, FormView):  # typ
     def get_context_data(self, **kwargs: Any) -> dict[str, Any]:
         context = super().get_context_data(**kwargs)
         context["active_nav"] = "data_imports"
-        context["data_imports"] = DataImport.objects.select_related(
+        context["import_type"] = self.get_import_type()
+        context["place_import_form"] = kwargs.get(
+            "place_import_form",
+            PlaceImportForm(),
+        )
+        context["intelligence_import_form"] = kwargs.get(
+            "intelligence_import_form",
+            IntelligenceImportForm(),
+        )
+        context["has_intelligence_datasets"] = IntelligenceDataset.objects.filter(
+            is_active=True,
+            source__is_active=True,
+            indicator__is_active=True,
+        ).exists()
+        context["place_imports"] = PlaceImport.objects.select_related(
+            "service_area",
+            "service_area__country",
+            "requested_by",
+        )[:20]
+        context["intelligence_imports"] = IntelligenceImport.objects.select_related(
+            "dataset",
+            "dataset__source",
+            "dataset__indicator",
             "service_area",
             "service_area__country",
             "requested_by",
@@ -320,18 +344,59 @@ class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, FormView):  # typ
 
         return context
 
-    @override
-    def form_valid(self, form: DataImportForm) -> HttpResponse:
-        data_import = form.save(commit=False)
+    def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if self.get_import_type() == "intelligence":
+            intelligence_import_form = IntelligenceImportForm(request.POST)
+            if intelligence_import_form.is_valid():
+                return self.create_intelligence_import(intelligence_import_form)
+
+            return self.render_to_response(
+                self.get_context_data(
+                    intelligence_import_form=intelligence_import_form,
+                )
+            )
+
+        place_import_form = PlaceImportForm(request.POST)
+        if place_import_form.is_valid():
+            return self.create_place_import(place_import_form)
+
+        return self.render_to_response(
+            self.get_context_data(place_import_form=place_import_form)
+        )
+
+    def get_import_type(self) -> str:
+        import_type = self.request.POST.get(
+            "import_type",
+            self.request.GET.get("type", "places"),
+        )
+        return import_type if import_type in {"places", "intelligence"} else "places"
+
+    def create_place_import(self, form: PlaceImportForm) -> HttpResponse:
+        place_import = form.save(commit=False)
         user = self.request.user
         assert isinstance(user, User)
-        data_import.requested_by = user
-        data_import.save()
-        assert data_import.pk is not None
-        cast(Any, run_data_import).delay(data_import.pk)
+        place_import.requested_by = user
+        place_import.save()
+        assert place_import.pk is not None
+        cast(Any, run_place_import).delay(place_import.pk)
         messages.success(self.request, "OpenStreetMap data import started.")
 
-        return super().form_valid(form)
+        return redirect(str(self.success_url))
+
+    def create_intelligence_import(
+        self,
+        form: IntelligenceImportForm,
+    ) -> HttpResponse:
+        intelligence_import = form.save(commit=False)
+        user = self.request.user
+        assert isinstance(user, User)
+        intelligence_import.requested_by = user
+        intelligence_import.save()
+        assert intelligence_import.pk is not None
+        cast(Any, run_intelligence_import).delay(intelligence_import.pk)
+        messages.success(self.request, "Area intelligence import started.")
+
+        return redirect(f"{self.success_url}?type=intelligence")
 
 
 @require_POST

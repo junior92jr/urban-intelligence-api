@@ -13,8 +13,15 @@ from rest_framework.test import APIClient
 from accounts.models import User, UserProfile
 from accounts.services.registration import register_user
 from geo.models import ServiceArea
-from places.models import DataImport
-from places.tasks import run_data_import
+from intelligence.models import (
+    IntelligenceDataset,
+    IntelligenceImport,
+    IntelligenceIndicator,
+    IntelligenceSource,
+)
+from intelligence.tasks import run_intelligence_import
+from places.models import PlaceImport
+from places.tasks import run_place_import
 from web import views as web_views
 
 APP_JS_PATH = Path(__file__).resolve().parents[1] / "static/web/app.js"
@@ -520,9 +527,9 @@ def test_data_imports_page_renders_for_staff_user(api_client: APIClient) -> None
         is_staff=True,
     )
     service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
-    DataImport.objects.create(
+    PlaceImport.objects.create(
         service_area=service_area,
-        layer=DataImport.Layer.AMENITIES,
+        layer=PlaceImport.Layer.AMENITIES,
         radius=8000,
         requested_by=user,
         result_count=12,
@@ -534,10 +541,10 @@ def test_data_imports_page_renders_for_staff_user(api_client: APIClient) -> None
     assert response.status_code == status.HTTP_200_OK
     assert b"Data Imports" in response.content
     assert b"OpenStreetMap" in response.content
-    assert b"Start city import" in response.content
+    assert b"Start place import" in response.content
     assert b"Map layer" in response.content
     assert b"Green spaces" in response.content
-    assert b"Recent imports" in response.content
+    assert b"Recent place imports" in response.content
     assert b"Frankfurt am Main" in response.content
     assert b"12 places" in response.content
     assert b"imports-panel" in response.content
@@ -555,26 +562,79 @@ def test_data_imports_page_starts_open_street_map_import(
     )
     service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
     api_client.force_login(user)
-    mocker(run_data_import).mock("delay").called_once()
+    mocker(run_place_import).mock("delay").called_once()
 
     response = api_client.post(
         reverse("web:data_imports"),
         {
+            "import_type": "places",
             "service_area": str(service_area.pk),
             "layer": "amenities",
             "radius": "8000",
         },
     )
-    data_import = DataImport.objects.get()
+    place_import = PlaceImport.objects.get()
 
     assert response.status_code == status.HTTP_302_FOUND
     assert response["Location"] == reverse("web:data_imports")
-    assert data_import.source == DataImport.Source.OPEN_STREET_MAP
-    assert data_import.status == DataImport.Status.PENDING
-    assert data_import.service_area == service_area
-    assert data_import.layer == DataImport.Layer.AMENITIES
-    assert data_import.radius == 8000
-    assert data_import.requested_by == user
+    assert place_import.status == PlaceImport.Status.PENDING
+    assert place_import.service_area == service_area
+    assert place_import.layer == PlaceImport.Layer.AMENITIES
+    assert place_import.radius == 8000
+    assert place_import.requested_by == user
+
+
+def test_data_imports_page_shows_intelligence_empty_state(
+    api_client: APIClient,
+) -> None:
+    user = User.objects.create_user(
+        email="intelligence-imports-empty-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+        is_staff=True,
+    )
+    api_client.force_login(user)
+
+    response = api_client.get(f"{reverse('web:data_imports')}?type=intelligence")
+
+    assert response.status_code == status.HTTP_200_OK
+    assert b"Area intelligence" in response.content
+    assert b"No area-intelligence datasets are configured yet." in response.content
+
+
+def test_data_imports_page_starts_intelligence_import(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="intelligence-imports-submit-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+        is_staff=True,
+    )
+    service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
+    dataset = IntelligenceDataset.objects.create(
+        source=IntelligenceSource.objects.get(slug="open-street-map"),
+        indicator=IntelligenceIndicator.objects.get(slug="green-exposure"),
+        slug="tree-cover-density",
+        name="Tree Cover Density",
+    )
+    api_client.force_login(user)
+    mocker(run_intelligence_import).mock("delay").called_once()
+
+    response = api_client.post(
+        reverse("web:data_imports"),
+        {
+            "import_type": "intelligence",
+            "dataset": str(dataset.pk),
+            "service_area": str(service_area.pk),
+        },
+    )
+    intelligence_import = IntelligenceImport.objects.get()
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == f"{reverse('web:data_imports')}?type=intelligence"
+    assert intelligence_import.status == IntelligenceImport.Status.PENDING
+    assert intelligence_import.dataset == dataset
+    assert intelligence_import.service_area == service_area
+    assert intelligence_import.requested_by == user
 
 
 def test_map_app_reads_tile_url_from_template_dataset() -> None:

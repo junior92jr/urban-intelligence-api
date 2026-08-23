@@ -15,82 +15,135 @@
           <div>
             <p class="eyebrow">Operations</p>
             <h1>Data Imports</h1>
-            <p>Load OpenStreetMap data for supported cities and map layers.</p>
+            <p>Load place data and scheduled area-intelligence datasets for supported cities.</p>
           </div>
         </header>
 
         {% include "web/includes/messages.html" %}
 
+        <nav class="import-tabs" aria-label="Import type">
+          <a class="import-tab {% if import_type == 'places' %}import-tab--active{% endif %}" href="{% url 'web:data_imports' %}?type=places">Place data</a>
+          <a class="import-tab {% if import_type == 'intelligence' %}import-tab--active{% endif %}" href="{% url 'web:data_imports' %}?type=intelligence">Area intelligence</a>
+        </nav>
+
         <section class="settings-panel">
           <div class="settings-section-header">
             <div>
-              <p class="eyebrow">OpenStreetMap</p>
-              <h2>Start city import</h2>
+              {% if import_type == 'places' %}
+                <p class="eyebrow">OpenStreetMap</p>
+                <h2>Start place import</h2>
+              {% else %}
+                <p class="eyebrow">Area intelligence</p>
+                <h2>Start dataset import</h2>
+              {% endif %}
             </div>
           </div>
 
-          <form class="profile-form" method="post">
-            {% csrf_token %}
-            {{ form.non_field_errors }}
+          {% if import_type == 'places' %}
+            <form class="profile-form" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="import_type" value="places">
+              {{ place_import_form.non_field_errors }}
 
-            <label class="field">
-              <span>Data source</span>
-              {{ form.source }}
-              {{ form.source.errors }}
-            </label>
+              <label class="field">
+                <span>City</span>
+                {{ place_import_form.service_area }}
+                {{ place_import_form.service_area.errors }}
+              </label>
 
-            <label class="field">
-              <span>City</span>
-              {{ form.service_area }}
-              {{ form.service_area.errors }}
-            </label>
+              <label class="field">
+                <span>Map layer</span>
+                {{ place_import_form.layer }}
+                {{ place_import_form.layer.errors }}
+              </label>
 
-            <label class="field">
-              <span>Map layer</span>
-              {{ form.layer }}
-              {{ form.layer.errors }}
-            </label>
+              <label class="field">
+                <span>Import radius</span>
+                {{ place_import_form.radius }}
+                {{ place_import_form.radius.errors }}
+              </label>
 
-            <label class="field">
-              <span>Import radius</span>
-              {{ form.radius }}
-              {{ form.radius.errors }}
-            </label>
+              <div class="settings-actions">
+                <button class="primary-button" type="submit">Start import</button>
+                <a class="secondary-button" href="{% url 'web:map' %}">Back to map</a>
+              </div>
+            </form>
+          {% elif has_intelligence_datasets %}
+            <form class="profile-form" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="import_type" value="intelligence">
+              {{ intelligence_import_form.non_field_errors }}
 
-            <div class="settings-actions">
-              <button class="primary-button" type="submit">Start import</button>
-              <a class="secondary-button" href="{% url 'web:map' %}">Back to map</a>
-            </div>
-          </form>
+              <label class="field">
+                <span>Dataset</span>
+                {{ intelligence_import_form.dataset }}
+                {{ intelligence_import_form.dataset.errors }}
+              </label>
+
+              <label class="field">
+                <span>City</span>
+                {{ intelligence_import_form.service_area }}
+                {{ intelligence_import_form.service_area.errors }}
+              </label>
+
+              <div class="settings-actions">
+                <button class="primary-button" type="submit">Start import</button>
+                <a class="secondary-button" href="{% url 'web:map' %}">Back to map</a>
+              </div>
+            </form>
+          {% else %}
+            <p class="import-empty">No area-intelligence datasets are configured yet.</p>
+          {% endif %}
         </section>
 
         <section class="settings-panel imports-panel">
           <div class="settings-section-header">
             <div>
-              <p class="eyebrow">Celery</p>
-              <h2>Recent imports</h2>
+              <p class="eyebrow">Import history</p>
+              <h2>Recent {% if import_type == 'places' %}place{% else %}intelligence{% endif %} imports</h2>
             </div>
           </div>
 
           <ol class="import-list">
-            {% for data_import in data_imports %}
+            {% if import_type == 'places' %}
+              {% for place_import in place_imports %}
               <li class="import-item">
                 <div>
-                  <strong>{{ data_import.service_area.name }}</strong>
-                  <span>{{ data_import.get_source_display }} · {{ data_import.get_layer_display }} · {{ data_import.radius }} m</span>
+                  <strong>{{ place_import.service_area.name }}</strong>
+                  <span>OpenStreetMap · {{ place_import.get_layer_display }} · {{ place_import.radius }} m</span>
                 </div>
                 <div class="import-meta">
-                  <span class="status-pill status-pill--{{ data_import.status }}">{{ data_import.get_status_display }}</span>
-                  <span>{{ data_import.result_count }} places</span>
-                  <span>{{ data_import.created_at|date:"M j, H:i" }}</span>
+                  <span class="status-pill status-pill--{{ place_import.status }}">{{ place_import.get_status_display }}</span>
+                  <span>{{ place_import.result_count }} places</span>
+                  <span>{{ place_import.created_at|date:"M j, H:i" }}</span>
                 </div>
-                {% if data_import.error_message %}
-                  <p>{{ data_import.error_message }}</p>
+                {% if place_import.error_message %}
+                  <p>{{ place_import.error_message }}</p>
                 {% endif %}
               </li>
             {% empty %}
               <li class="import-item import-item--empty">No imports started yet.</li>
             {% endfor %}
+            {% else %}
+              {% for intelligence_import in intelligence_imports %}
+                <li class="import-item">
+                  <div>
+                    <strong>{{ intelligence_import.service_area.name }}</strong>
+                    <span>{{ intelligence_import.dataset.source.name }} · {{ intelligence_import.dataset.name }} · {{ intelligence_import.dataset.indicator.name }}</span>
+                  </div>
+                  <div class="import-meta">
+                    <span class="status-pill status-pill--{{ intelligence_import.status }}">{{ intelligence_import.get_status_display }}</span>
+                    <span>{{ intelligence_import.result_count }} observations</span>
+                    <span>{{ intelligence_import.created_at|date:"M j, H:i" }}</span>
+                  </div>
+                  {% if intelligence_import.error_message %}
+                    <p>{{ intelligence_import.error_message }}</p>
+                  {% endif %}
+                </li>
+              {% empty %}
+                <li class="import-item import-item--empty">No imports started yet.</li>
+              {% endfor %}
+            {% endif %}
           </ol>
         </section>
       </div>

@@ -649,6 +649,39 @@ h2 {
   box-shadow: var(--shadow);
 }
 
+.import-tabs {
+  display: inline-flex;
+  width: fit-content;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  overflow: hidden;
+}
+
+.import-tab {
+  min-height: 40px;
+  padding: 0 14px;
+  display: inline-grid;
+  place-items: center;
+  border-right: 1px solid var(--line);
+  color: var(--muted);
+  font-weight: 750;
+  text-decoration: none;
+}
+
+.import-tab:last-child {
+  border-right: 0;
+}
+
+.import-tab--active {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.import-empty {
+  margin: 0;
+  color: var(--muted);
+}
+
 .settings-section-header {
   display: flex;
   gap: 18px;

@@ -13,7 +13,8 @@ from accounts.services.registration import (
     reset_password,
 )
 from geo.models import ServiceArea, build_point
-from places.models import DataImport
+from intelligence.models import IntelligenceDataset, IntelligenceImport
+from places.models import PlaceImport
 
 
 class EmailAuthenticationForm(AuthenticationForm):
@@ -190,17 +191,13 @@ class LocationPreferencesForm(forms.Form):
         return self.profile
 
 
-class DataImportForm(forms.ModelForm):  # type: ignore[type-arg]
+class PlaceImportForm(forms.ModelForm):  # type: ignore[type-arg]
     class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
-        model = DataImport
-        fields = ("source", "service_area", "layer", "radius")
+        model = PlaceImport
+        fields = ("service_area", "layer", "radius")
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
-        source_field = self.fields["source"]
-        source_field.disabled = True
-        source_field.initial = DataImport.Source.OPEN_STREET_MAP
-
         service_area_field = cast(
             "forms.ModelChoiceField[ServiceArea]",
             self.fields["service_area"],
@@ -213,14 +210,44 @@ class DataImportForm(forms.ModelForm):  # type: ignore[type-arg]
         )
 
     @override
-    def save(self, commit: bool = True) -> DataImport:
-        data_import = cast(DataImport, super().save(commit=False))
-        data_import.source = DataImport.Source.OPEN_STREET_MAP
+    def save(self, commit: bool = True) -> PlaceImport:
+        place_import = cast(PlaceImport, super().save(commit=False))
 
         if commit:
-            data_import.save()
+            place_import.save()
 
-        return data_import
+        return place_import
+
+
+class IntelligenceImportForm(forms.ModelForm):  # type: ignore[type-arg]
+    class Meta:  # pyright: ignore[reportIncompatibleVariableOverride]
+        model = IntelligenceImport
+        fields = ("dataset", "service_area")
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        dataset_field = cast(
+            "forms.ModelChoiceField[IntelligenceDataset]",
+            self.fields["dataset"],
+        )
+        dataset_field.queryset = IntelligenceDataset.objects.select_related(
+            "source",
+            "indicator",
+        ).filter(
+            is_active=True,
+            source__is_active=True,
+            indicator__is_active=True,
+        )
+        service_area_field = cast(
+            "forms.ModelChoiceField[ServiceArea]",
+            self.fields["service_area"],
+        )
+        service_area_field.queryset = ServiceArea.objects.select_related(
+            "country",
+        ).filter(
+            is_active=True,
+            country__is_active=True,
+        )
 
 
 def add_form_error(form: forms.Form, error: ValidationError) -> None:
