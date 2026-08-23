@@ -35,6 +35,17 @@ GeoDjango requires native GDAL/GEOS/PROJ libraries. Docker includes them, and ma
 brew install gdal geos proj
 ```
 
+## Service Areas
+
+The ten supported German cities are seeded with municipality polygons from BKG
+VG250. The versioned GeoJSON stores only those city features, transformed to
+WGS84, and the data migration writes each polygon and its bounding box to the
+corresponding `ServiceArea`. Its source metadata is retained in
+`ServiceArea.data_config["boundary"]`.
+
+Source: BKG VG250, reference date 2026-01-01, licensed under
+[dl-de/by-2-0](https://www.govdata.de/dl-de/by-2-0).
+
 ## Why This Shape
 
 This keeps the API stable:
