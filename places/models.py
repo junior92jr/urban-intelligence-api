@@ -169,10 +169,7 @@ class AreaScan(models.Model):
         return float(self.center.x)
 
 
-class DataImport(models.Model):
-    class Source(models.TextChoices):
-        OPEN_STREET_MAP = "open_street_map", "OpenStreetMap"
-
+class PlaceImport(models.Model):
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         RUNNING = "running", "Running"
@@ -185,15 +182,10 @@ class DataImport(models.Model):
         MOBILITY = "mobility", "Mobility"
         GREEN = "green", "Green spaces"
 
-    source = models.CharField(
-        max_length=32,
-        choices=Source.choices,
-        default=Source.OPEN_STREET_MAP,
-    )
     service_area = models.ForeignKey(
         "geo.ServiceArea",
         on_delete=models.CASCADE,
-        related_name="data_imports",
+        related_name="place_imports",
     )
     layer = models.CharField(
         max_length=32,
@@ -204,7 +196,7 @@ class DataImport(models.Model):
     requested_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
-        related_name="requested_data_imports",
+        related_name="requested_place_imports",
         null=True,
         blank=True,
     )
@@ -224,10 +216,10 @@ class DataImport(models.Model):
         ordering = ("-created_at",)
         indexes: ClassVar[list[models.Index]] = [
             models.Index(
-                fields=["source", "service_area", "status"],
-                name="data_import_source_area_idx",
+                fields=["service_area", "status"],
+                name="place_import_area_status_idx",
             ),
-            models.Index(fields=["created_at"], name="data_import_created_idx"),
+            models.Index(fields=["created_at"], name="place_import_created_idx"),
         ]
 
     @override

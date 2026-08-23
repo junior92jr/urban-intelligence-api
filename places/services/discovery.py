@@ -4,7 +4,7 @@ from django.db.models import QuerySet
 from django.utils import timezone
 
 from geo.models import ServiceArea, build_point
-from places.models import AreaScan, DataImport, DiscoveredPlace
+from places.models import AreaScan, DiscoveredPlace, PlaceImport
 from places.services.categories import get_category_by_slug
 from places.services.layers import get_layer_filter, place_matches_layer
 from places.services.mappers import OpenStreetMapPlace
@@ -110,11 +110,11 @@ def fail_scan(scan: AreaScan, error: Exception) -> None:
     )
 
 
-def run_data_import(data_import: DataImport) -> int:
-    data_import.status = DataImport.Status.RUNNING
-    data_import.started_at = timezone.now()
-    data_import.error_message = ""
-    data_import.save(
+def run_place_import(place_import: PlaceImport) -> int:
+    place_import.status = PlaceImport.Status.RUNNING
+    place_import.started_at = timezone.now()
+    place_import.error_message = ""
+    place_import.save(
         update_fields=[
             "status",
             "started_at",
@@ -124,11 +124,11 @@ def run_data_import(data_import: DataImport) -> int:
     )
 
     query_params: PlaceQueryParams = {
-        "lat": data_import.service_area.latitude,
-        "lng": data_import.service_area.longitude,
-        "search_radius": data_import.radius,
+        "lat": place_import.service_area.latitude,
+        "lng": place_import.service_area.longitude,
+        "search_radius": place_import.radius,
     }
-    layer_filter = get_layer_filter(data_import.layer)
+    layer_filter = get_layer_filter(place_import.layer)
     if category := layer_filter.get("category"):
         query_params["category"] = category
     if category_group := layer_filter.get("category_group"):
@@ -137,17 +137,17 @@ def run_data_import(data_import: DataImport) -> int:
     places = [
         place
         for place in response.places
-        if place_matches_layer(place, data_import.layer)
+        if place_matches_layer(place, place_import.layer)
     ]
     result_count = upsert_discovered_places(
-        service_area=data_import.service_area,
+        service_area=place_import.service_area,
         places=places,
     )
 
-    data_import.status = DataImport.Status.COMPLETED
-    data_import.completed_at = timezone.now()
-    data_import.result_count = result_count
-    data_import.save(
+    place_import.status = PlaceImport.Status.COMPLETED
+    place_import.completed_at = timezone.now()
+    place_import.result_count = result_count
+    place_import.save(
         update_fields=[
             "status",
             "completed_at",
@@ -159,11 +159,11 @@ def run_data_import(data_import: DataImport) -> int:
     return result_count
 
 
-def fail_data_import(data_import: DataImport, error: Exception) -> None:
-    data_import.status = DataImport.Status.FAILED
-    data_import.completed_at = timezone.now()
-    data_import.error_message = str(error)
-    data_import.save(
+def fail_place_import(place_import: PlaceImport, error: Exception) -> None:
+    place_import.status = PlaceImport.Status.FAILED
+    place_import.completed_at = timezone.now()
+    place_import.error_message = str(error)
+    place_import.save(
         update_fields=[
             "status",
             "completed_at",

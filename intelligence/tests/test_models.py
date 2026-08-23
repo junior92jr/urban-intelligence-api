@@ -5,6 +5,7 @@ from django.utils import timezone
 from geo.models import ServiceArea
 from intelligence.models import (
     AreaIndicatorObservation,
+    IntelligenceDataset,
     IntelligenceIndicator,
     IntelligenceSource,
 )
@@ -56,3 +57,23 @@ def test_area_indicator_observation_requires_a_score_or_trend() -> None:
 
     with pytest.raises(ValidationError):
         observation.full_clean()
+
+
+def test_intelligence_dataset_is_unique_per_source_and_slug() -> None:
+    source = IntelligenceSource.objects.get(slug="open-street-map")
+    indicator = IntelligenceIndicator.objects.get(slug="green-exposure")
+    IntelligenceDataset.objects.create(
+        source=source,
+        indicator=indicator,
+        slug="tree-cover-density",
+        name="Tree Cover Density",
+    )
+    duplicate = IntelligenceDataset(
+        source=source,
+        indicator=indicator,
+        slug="tree-cover-density",
+        name="Tree Cover Density",
+    )
+
+    with pytest.raises(ValidationError):
+        duplicate.full_clean()

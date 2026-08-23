@@ -2,7 +2,7 @@ import pytest
 from chainmock import mocker
 
 from geo.models import ServiceArea, build_point
-from places.models import AreaScan, DataImport, DiscoveredPlace
+from places.models import AreaScan, DiscoveredPlace, PlaceImport
 from places.services import discovery
 from places.services.mappers import OpenStreetMapApiResponse
 
@@ -195,11 +195,11 @@ def test_run_scan_updates_scan_status_and_persists_results():
     assert DiscoveredPlace.objects.filter(name="Good Food").exists()
 
 
-def test_run_data_import_updates_status_and_persists_requested_layer_results():
+def test_run_place_import_updates_status_and_persists_requested_layer_results():
     service_area = ServiceArea.objects.get(slug="frankfurt-am-main")
-    data_import = DataImport.objects.create(
+    place_import = PlaceImport.objects.create(
         service_area=service_area,
-        layer=DataImport.Layer.AMENITIES,
+        layer=PlaceImport.Layer.AMENITIES,
         radius=8000,
     )
     response = OpenStreetMapApiResponse.from_api_response(
@@ -237,12 +237,12 @@ def test_run_data_import_updates_status_and_persists_requested_layer_results():
         }
     ).return_value(response)
 
-    result_count = discovery.run_data_import(data_import)
-    data_import.refresh_from_db()
+    result_count = discovery.run_place_import(place_import)
+    place_import.refresh_from_db()
 
     assert result_count == 1
-    assert data_import.status == DataImport.Status.COMPLETED
-    assert data_import.result_count == 1
+    assert place_import.status == PlaceImport.Status.COMPLETED
+    assert place_import.result_count == 1
     assert DiscoveredPlace.objects.filter(name="Good Food").exists()
     assert not DiscoveredPlace.objects.filter(name="Parking").exists()
 

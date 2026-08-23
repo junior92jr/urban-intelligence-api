@@ -1,6 +1,6 @@
 from typing import NotRequired, TypedDict
 
-from places.models import DataImport
+from places.models import PlaceImport
 from places.services.categories import get_category_by_slug
 from places.services.mappers import OpenStreetMapPlace
 
@@ -12,10 +12,10 @@ class LayerFilter(TypedDict):
 
 def get_layer_filter(layer: str) -> LayerFilter:
     filters: dict[str, LayerFilter] = {
-        DataImport.Layer.AMENITIES: {"category_group": "food"},
-        DataImport.Layer.DAILY_LIFE: {"category_group": "essentials"},
-        DataImport.Layer.MOBILITY: {"category_group": "mobility"},
-        DataImport.Layer.GREEN: {"category": "park"},
+        PlaceImport.Layer.AMENITIES: {"category_group": "food"},
+        PlaceImport.Layer.DAILY_LIFE: {"category_group": "essentials"},
+        PlaceImport.Layer.MOBILITY: {"category_group": "mobility"},
+        PlaceImport.Layer.GREEN: {"category": "park"},
     }
 
     return filters[layer]
