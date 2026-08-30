@@ -67,6 +67,9 @@ make shell
 make down
 ```
 
+`make shell` opens the Django shell with IPython. For a POSIX shell inside the
+web container, use `make container-shell`.
+
 ## Local Database Backup and Restore
 
 Create a compressed PostgreSQL backup before experimenting with migrations:

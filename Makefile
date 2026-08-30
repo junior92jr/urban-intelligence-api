@@ -1,4 +1,4 @@
-.PHONY: nothing venv up down logs shell manage migrate migrations fix check test db-backup db-restore db-restore-latest
+.PHONY: nothing venv up down logs shell container-shell manage migrate migrations fix check test db-backup db-restore db-restore-latest
 
 DOCKER_ENV ?= .env.docker
 DOCKER = DJANGO_ENV_FILE=$(DOCKER_ENV) docker compose --env-file $(DOCKER_ENV)
@@ -19,6 +19,9 @@ logs:
 	$(DOCKER) logs -f
 
 shell:
+	$(DOCKER) run --rm web python manage.py shell -i ipython
+
+container-shell:
 	$(DOCKER) run --rm web sh
 
 manage:

@@ -33,6 +33,7 @@ dev = [
     "chainmock>=2.0.0",
     "django-stubs>=6.0.7",
     "djangorestframework-stubs>=3.17.0",
+    "ipython>=9,<10",
     "mypy>=2.3.0",
     "pyright>=1.1.411",
     "pytest>=9.1.1",
