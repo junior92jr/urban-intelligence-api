@@ -466,7 +466,7 @@ def test_normalize_osm_feature_resolves_boundary_names(
         "neighborhood",
     )
 
-    assert normalized["properties"]["name"] == expected_name
+    assert imports.feature_properties(normalized)["name"] == expected_name
 
 
 def test_normalize_osm_feature_rejects_boundary_without_a_usable_name() -> None:

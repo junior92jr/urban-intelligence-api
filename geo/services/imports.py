@@ -8,7 +8,7 @@ from pathlib import Path
 
 from django.conf import settings
 from django.contrib.gis.geos import GEOSException, GEOSGeometry, MultiPolygon, Polygon
-from django.db import transaction
+from django.db import models, transaction
 from django.utils import timezone
 from django.utils.text import slugify
 
@@ -582,9 +582,10 @@ def available_slug(*, country: Country, base_slug: str, run_id: int | None) -> s
     if not base_slug:
         raise OsmImportConfigurationError("A source feature needs a slug or name.")
 
-    max_length = ServiceArea._meta.get_field("slug").max_length
-    if max_length is None:
+    slug_field = ServiceArea._meta.get_field("slug")
+    if not isinstance(slug_field, models.CharField) or slug_field.max_length is None:
         raise OsmImportConfigurationError("Service area slugs need a maximum length.")
+    max_length = slug_field.max_length
 
     base_slug = truncate_slug(base_slug, max_length)
     candidate = base_slug
