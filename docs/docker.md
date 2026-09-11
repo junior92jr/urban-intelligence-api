@@ -149,6 +149,7 @@ Edit `.env.prod` with real values first. At minimum, set:
 - email settings
 - `MAP_TILE_URL`
 - `MAP_TILE_ATTRIBUTION`
+- `SECURE_REFERRER_POLICY` (use `strict-origin-when-cross-origin` with OpenStreetMap public tiles)
 
 Run production-style checks and release tasks explicitly:
 

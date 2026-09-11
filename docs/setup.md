@@ -50,7 +50,7 @@ OPEN_STREET_MAP_USER_AGENT=city-guide-api-demo
 OPEN_STREET_MAP_TIMEOUT_IN_SECS=20
 OPEN_STREET_MAP_MAX_RETRIES=3
 MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
-MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
+MAP_TILE_ATTRIBUTION=&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors
 EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend
 EMAIL_HOST=
 EMAIL_PORT=587
@@ -65,6 +65,7 @@ CSRF_COOKIE_SECURE=False
 SECURE_HSTS_SECONDS=0
 SECURE_HSTS_INCLUDE_SUBDOMAINS=False
 SECURE_HSTS_PRELOAD=False
+SECURE_REFERRER_POLICY=strict-origin-when-cross-origin
 USE_X_FORWARDED_HOST=False
 SECURE_PROXY_SSL_HEADER=False
 ```

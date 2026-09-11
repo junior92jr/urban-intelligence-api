@@ -29,7 +29,7 @@ For local development, the default tile URL uses OpenStreetMap public tiles:
 
 ```env
 MAP_TILE_URL=https://tile.openstreetmap.org/{z}/{x}/{y}.png
-MAP_TILE_ATTRIBUTION=OpenStreetMap contributors.
+MAP_TILE_ATTRIBUTION=&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors
 ```
 
 For production traffic, configure a proper tile provider:
@@ -40,3 +40,6 @@ MAP_TILE_ATTRIBUTION=Your tile provider attribution
 ```
 
 OpenStreetMap public tiles are suitable for local development only.
+They require visible attribution and a cross-origin referrer; the application
+uses `strict-origin-when-cross-origin` for that purpose. Do not override
+`SECURE_REFERRER_POLICY` with `same-origin` or `no-referrer` when using them.

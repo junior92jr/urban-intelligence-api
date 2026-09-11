@@ -56,7 +56,10 @@ env = environ.Env(
     ),
     MAP_TILE_ATTRIBUTION=(
         str,
-        "OpenStreetMap contributors.",
+        (
+            '&copy; <a href="https://www.openstreetmap.org/copyright">'
+            "OpenStreetMap</a> contributors"
+        ),
     ),
     EMAIL_BACKEND=(
         str,
@@ -75,6 +78,7 @@ env = environ.Env(
     SECURE_HSTS_SECONDS=(int, 0),
     SECURE_HSTS_INCLUDE_SUBDOMAINS=(bool, False),
     SECURE_HSTS_PRELOAD=(bool, False),
+    SECURE_REFERRER_POLICY=(str, "strict-origin-when-cross-origin"),
     USE_X_FORWARDED_HOST=(bool, False),
     SECURE_PROXY_SSL_HEADER=(bool, False),
 )
@@ -104,6 +108,8 @@ SECURE_HSTS_SECONDS = env("SECURE_HSTS_SECONDS")
 SECURE_HSTS_INCLUDE_SUBDOMAINS = env("SECURE_HSTS_INCLUDE_SUBDOMAINS")
 
 SECURE_HSTS_PRELOAD = env("SECURE_HSTS_PRELOAD")
+
+SECURE_REFERRER_POLICY = env("SECURE_REFERRER_POLICY")
 
 USE_X_FORWARDED_HOST = env("USE_X_FORWARDED_HOST")
 

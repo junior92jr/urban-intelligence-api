@@ -58,6 +58,7 @@ if (map !== null) {
   L.tileLayer(shell.dataset.tileUrl, {
     maxZoom: 19,
     attribution: shell.dataset.tileAttribution,
+    referrerPolicy: "strict-origin-when-cross-origin",
   }).addTo(map);
 }
 
