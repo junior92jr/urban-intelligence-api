@@ -45,7 +45,8 @@ check:
 	$(DOCKER) run --rm --no-deps web mypy --pretty .
 
 test:
-	$(DOCKER) run --rm web pytest -v \
+	$(DOCKER) up -d --wait db redis
+	$(DOCKER) run --rm --no-deps web pytest -v \
 		--cov-branch \
 		--cov-report=term-missing:skip-covered
 
