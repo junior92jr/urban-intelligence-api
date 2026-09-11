@@ -308,7 +308,7 @@ class IntelligenceImportForm(forms.ModelForm):  # type: ignore[type-arg]
 
 class OsmImportRunForm(forms.Form):
     city_slug = forms.ChoiceField(
-        choices=[(city.slug, city.name) for city in SUPPORTED_CITIES],
+        choices=[(city.slug, city.name) for city in SUPPORTED_CITIES.cities],
         label="Supported city",
     )
 

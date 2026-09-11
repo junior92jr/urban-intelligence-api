@@ -3,16 +3,22 @@ import json
 import os
 import subprocess
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
+from typing import NamedTuple
 
 from django.conf import settings
 from django.contrib.gis.geos import GEOSException, GEOSGeometry, MultiPolygon, Polygon
 from django.db import models, transaction
 from django.utils import timezone
 from django.utils.text import slugify
+from pydantic import BaseModel, ConfigDict, ValidationError
 
 from geo.models import Country, OsmImportRun, ServiceArea
+from geo.services.osm.schemas import (
+    GeoJsonFeature,
+    GeoJsonFeatureCollection,
+    SupportedCity,
+)
 from geo.services.osm.source import (
     archive_latest_extract,
     get_supported_city,
@@ -29,8 +35,19 @@ class OsmImportSourceUnavailable(Exception):
     """Raised when the configured object-store source cannot be read."""
 
 
-@dataclass(frozen=True)
-class ImportedArea:
+class OsmIdentity(NamedTuple):
+    source_id: str
+    element_type: str
+
+
+class ParentIdentity(NamedTuple):
+    element_type: str
+    source_id: str
+
+
+class ImportedArea(BaseModel):
+    model_config = ConfigDict(frozen=True, arbitrary_types_allowed=True)
+
     country_code: str
     name: str
     slug: str
@@ -42,7 +59,7 @@ class ImportedArea:
     osm_tags: dict[str, object]
     population: int | None
     timezone: str
-    parent_identity: tuple[str, str] | None
+    parent_identity: ParentIdentity | None
 
 
 def run_osm_import(osm_import_run: OsmImportRun) -> int:
@@ -127,11 +144,8 @@ def run_osm_import(osm_import_run: OsmImportRun) -> int:
     return len(created_areas)
 
 
-def extract_city_geojson(city: object, pbf_path: object) -> bytes:
+def extract_city_geojson(city: SupportedCity, pbf_path: Path) -> bytes:
     """Read the configured city boundary from a PBF as GeoJSON."""
-    from geo.services.osm.schemas import SupportedCity
-
-    assert isinstance(city, SupportedCity)
     where = "boundary = 'administrative'"
     if city.osm_relation_id:
         where += f" AND osm_id = {quote_ogr_value(city.osm_relation_id)}"
@@ -151,19 +165,23 @@ def extract_city_geojson(city: object, pbf_path: object) -> bytes:
         raise OsmImportConfigurationError(
             "Configured city admin level did not match OSM."
         )
-    return json.dumps(
-        {"type": "FeatureCollection", "features": [city_feature]}
-    ).encode()
+    return (
+        GeoJsonFeatureCollection(
+            type="FeatureCollection",
+            features=[city_feature],
+        )
+        .model_dump_json()
+        .encode()
+    )
 
 
-def extract_city_hierarchy_geojson(city: object, pbf_path: object) -> bytes:
+def extract_city_hierarchy_geojson(city: SupportedCity, pbf_path: Path) -> bytes:
     """Return configured city, district and neighborhood boundaries unchanged."""
-    from geo.services.osm.schemas import SupportedCity
-
-    assert isinstance(city, SupportedCity)
-    city_features = json.loads(extract_city_geojson(city, pbf_path))["features"]
+    city_features = GeoJsonFeatureCollection.model_validate_json(
+        extract_city_geojson(city, pbf_path)
+    ).features
     city_feature = city_features[0]
-    city_boundary = parse_boundary(city_feature["geometry"])
+    city_boundary = parse_boundary(city_feature.geometry)
 
     districts = extract_admin_features(
         city,
@@ -186,16 +204,16 @@ def extract_city_hierarchy_geojson(city: object, pbf_path: object) -> bytes:
     for feature in districts:
         feature_properties(feature).update(
             {
-                "parent_source_id": city_identity[1],
-                "parent_osm_element_type": city_identity[0],
+                "parent_source_id": city_identity.source_id,
+                "parent_osm_element_type": city_identity.element_type,
             }
         )
 
     district_boundaries = [
-        (feature, parse_boundary(feature.get("geometry"))) for feature in districts
+        (feature, parse_boundary(feature.geometry)) for feature in districts
     ]
     for feature in neighborhoods:
-        neighborhood_point = parse_boundary(feature.get("geometry")).point_on_surface
+        neighborhood_point = parse_boundary(feature.geometry).point_on_surface
         matches = [
             district
             for district, boundary in district_boundaries
@@ -217,25 +235,25 @@ def extract_city_hierarchy_geojson(city: object, pbf_path: object) -> bytes:
             }
         )
 
-    document = {
-        "type": "FeatureCollection",
-        "features": [city_feature, *districts, *neighborhoods],
-    }
-    return json.dumps(document).encode()
+    return (
+        GeoJsonFeatureCollection(
+            type="FeatureCollection",
+            features=[city_feature, *districts, *neighborhoods],
+        )
+        .model_dump_json()
+        .encode()
+    )
 
 
 def extract_admin_features(
-    city: object,
-    pbf_path: object,
+    city: SupportedCity,
+    pbf_path: Path,
     admin_levels: tuple[int, ...],
     area_type: str,
     *,
     spatial_filter: tuple[float, float, float, float] | None = None,
-) -> list[dict[str, object]]:
+) -> list[GeoJsonFeature]:
     """Read configured administrative levels from a regional PBF extract."""
-    from geo.services.osm.schemas import SupportedCity
-
-    assert isinstance(city, SupportedCity)
     if not admin_levels:
         return []
 
@@ -248,11 +266,11 @@ def extract_admin_features(
 
 
 def run_ogr_geojson(
-    pbf_path: object,
+    pbf_path: Path,
     where: str,
     *,
     spatial_filter: tuple[float, float, float, float] | None = None,
-) -> list[dict[str, object]]:
+) -> list[GeoJsonFeature]:
     with tempfile.NamedTemporaryFile(suffix=".geojson", delete=False) as output:
         output_path = Path(output.name)
     output_path.unlink(missing_ok=True)
@@ -291,27 +309,26 @@ def run_ogr_geojson(
     finally:
         output_path.unlink(missing_ok=True)
 
-    features = document.get("features")
-    if not isinstance(features, list):
-        raise OsmImportConfigurationError("GDAL did not produce GeoJSON features.")
-    return [feature for feature in features if isinstance(feature, dict)]
+    try:
+        return GeoJsonFeatureCollection.model_validate(document).features
+    except ValidationError as exc:
+        raise OsmImportConfigurationError(
+            "GDAL did not produce valid GeoJSON features."
+        ) from exc
 
 
 def normalize_osm_feature(
-    city: object,
-    feature: dict[str, object],
+    city: SupportedCity,
+    feature: GeoJsonFeature,
     area_type: str,
-) -> dict[str, object]:
-    from geo.services.osm.schemas import SupportedCity
-
-    assert isinstance(city, SupportedCity)
+) -> GeoJsonFeature:
     properties = feature_properties(feature)
     if properties.get("boundary") != "administrative":
         raise OsmImportConfigurationError(
             "Only administrative OSM boundaries can be imported."
         )
 
-    parse_boundary(feature.get("geometry"))
+    parse_boundary(feature.geometry)
     source_id, element_type = osm_identity(properties)
     osm_tags = parse_other_tags(properties.get("other_tags"))
     properties["name"] = osm_feature_name(properties, osm_tags)
@@ -348,41 +365,44 @@ def osm_feature_name(properties: dict[str, object], osm_tags: dict[str, object])
     raise OsmImportConfigurationError("Every OSM feature needs a name or reference.")
 
 
-def feature_properties(feature: dict[str, object]) -> dict[str, object]:
-    properties = feature.get("properties")
-    if not isinstance(properties, dict):
-        raise OsmImportConfigurationError("Every OSM feature needs properties.")
-    return properties
+def feature_properties(feature: GeoJsonFeature) -> dict[str, object]:
+    return feature.properties
 
 
-def osm_identity(properties: dict[str, object]) -> tuple[str, str]:
+def osm_identity(properties: dict[str, object]) -> OsmIdentity:
     osm_id = properties.get("osm_id")
     if osm_id not in (None, ""):
-        return (str(osm_id), ServiceArea.OsmElementType.RELATION)
+        return OsmIdentity(
+            source_id=str(osm_id),
+            element_type=ServiceArea.OsmElementType.RELATION,
+        )
 
     osm_way_id = properties.get("osm_way_id")
     if osm_way_id not in (None, ""):
-        return (str(osm_way_id), ServiceArea.OsmElementType.WAY)
+        return OsmIdentity(
+            source_id=str(osm_way_id),
+            element_type=ServiceArea.OsmElementType.WAY,
+        )
 
     raise OsmImportConfigurationError("Every OSM feature needs osm_id or osm_way_id.")
 
 
-def feature_identity(feature: dict[str, object]) -> tuple[str, str]:
+def feature_identity(feature: GeoJsonFeature) -> ParentIdentity:
     properties = feature_properties(feature)
-    return (
-        required_string(properties, "osm_element_type"),
-        required_string(properties, "source_id"),
+    return ParentIdentity(
+        element_type=required_string(properties, "osm_element_type"),
+        source_id=required_string(properties, "source_id"),
     )
 
 
 def filter_features_inside_boundary(
-    features: list[dict[str, object]],
+    features: list[GeoJsonFeature],
     boundary: MultiPolygon,
-) -> list[dict[str, object]]:
+) -> list[GeoJsonFeature]:
     return [
         feature
         for feature in features
-        if boundary.covers(parse_boundary(feature.get("geometry")).point_on_surface)
+        if boundary.covers(parse_boundary(feature.geometry).point_on_surface)
     ]
 
 
@@ -433,14 +453,14 @@ def parse_source(source_bytes: bytes) -> list[ImportedArea]:
     except (UnicodeDecodeError, json.JSONDecodeError) as exc:
         raise OsmImportConfigurationError("The source is not valid GeoJSON.") from exc
 
-    if source.get("type") != "FeatureCollection" or not isinstance(
-        source.get("features"), list
-    ):
+    try:
+        document = GeoJsonFeatureCollection.model_validate(source)
+    except ValidationError as exc:
         raise OsmImportConfigurationError(
             "The source must be a GeoJSON FeatureCollection."
-        )
+        ) from exc
 
-    areas = [parse_feature(feature) for feature in source["features"]]
+    areas = [parse_feature(feature) for feature in document.features]
     identities = {(area.osm_element_type, area.source_id) for area in areas}
     if len(identities) != len(areas):
         raise OsmImportConfigurationError(
@@ -449,14 +469,8 @@ def parse_source(source_bytes: bytes) -> list[ImportedArea]:
     return areas
 
 
-def parse_feature(feature: object) -> ImportedArea:
-    if not isinstance(feature, dict) or feature.get("type") != "Feature":
-        raise OsmImportConfigurationError(
-            "Every source item must be a GeoJSON Feature."
-        )
-    properties = feature.get("properties")
-    if not isinstance(properties, dict):
-        raise OsmImportConfigurationError("Every source feature needs properties.")
+def parse_feature(feature: GeoJsonFeature) -> ImportedArea:
+    properties = feature.properties
 
     country_code = required_string(properties, "country_code").upper()
     name = required_string(properties, "name")
@@ -475,7 +489,7 @@ def parse_feature(feature: object) -> ImportedArea:
         )
 
     source_id = required_string(properties, "source_id")
-    boundary = parse_boundary(feature.get("geometry"))
+    boundary = parse_boundary(feature.geometry)
     osm_tags = properties.get("osm_tags", {})
     if not isinstance(osm_tags, dict):
         raise OsmImportConfigurationError("osm_tags must be an object.")
@@ -516,13 +530,9 @@ def create_service_areas(
     osm_import_run: OsmImportRun,
     areas: list[ImportedArea],
 ) -> list[ServiceArea]:
-    countries = {
-        country.code: country
-        for country in Country.objects.filter(
-            code__in={area.country_code for area in areas}
-        )
-    }
-    missing_countries = sorted({area.country_code for area in areas} - countries.keys())
+    country_codes = {area.country_code for area in areas}
+    countries = Country.objects.in_bulk(country_codes, field_name="code")
+    missing_countries = sorted(country_codes - countries.keys())
     if missing_countries:
         raise OsmImportConfigurationError(
             f"No Country exists for: {', '.join(missing_countries)}."
@@ -631,7 +641,7 @@ def optional_positive_int(properties: dict[str, object], key: str) -> int | None
 
 def parse_parent_identity(
     properties: dict[str, object],
-) -> tuple[str, str] | None:
+) -> ParentIdentity | None:
     source_id = properties.get("parent_source_id")
     element_type = properties.get("parent_osm_element_type")
     if source_id in (None, "") and element_type in (None, ""):
@@ -640,7 +650,10 @@ def parse_parent_identity(
         raise OsmImportConfigurationError(
             "parent_source_id and parent_osm_element_type must be supplied together."
         )
-    return (element_type, source_id)
+    return ParentIdentity(
+        element_type=element_type,
+        source_id=source_id,
+    )
 
 
 def fail_osm_import(osm_import_run: OsmImportRun, error: Exception) -> None:

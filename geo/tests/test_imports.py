@@ -6,7 +6,7 @@ import pytest
 
 from geo.models import Country, OsmImportRun, ServiceArea, build_point
 from geo.services import imports
-from geo.services.osm.schemas import SupportedCity
+from geo.services.osm.schemas import GeoJsonFeature, SupportedCity
 from geo.services.osm.source import SUPPORTED_CITIES
 
 pytestmark = pytest.mark.django_db
@@ -18,7 +18,7 @@ def feature(
     area_type: str,
     source_id: str,
     parent_source_id: str | None = None,
-) -> dict[str, object]:
+) -> GeoJsonFeature:
     properties: dict[str, object] = {
         "country_code": "DE",
         "name": name,
@@ -31,16 +31,16 @@ def feature(
     if parent_source_id is not None:
         properties["parent_source_id"] = parent_source_id
         properties["parent_osm_element_type"] = "relation"
-    return {
-        "type": "Feature",
-        "properties": properties,
-        "geometry": {
+    return GeoJsonFeature(
+        type="Feature",
+        properties=properties,
+        geometry={
             "type": "Polygon",
             "coordinates": [
                 [[8.0, 50.0], [8.1, 50.0], [8.1, 50.1], [8.0, 50.1], [8.0, 50.0]]
             ],
         },
-    }
+    )
 
 
 def test_osm_import_creates_hierarchy_and_atomically_activates_new_run(
@@ -68,13 +68,13 @@ def test_osm_import_creates_hierarchy_and_atomically_activates_new_run(
     source = {
         "type": "FeatureCollection",
         "features": [
-            feature(name="Frankfurt", area_type="city", source_id="62400"),
+            feature(name="Frankfurt", area_type="city", source_id="62400").model_dump(),
             feature(
                 name="West",
                 area_type="district",
                 source_id="62401",
                 parent_source_id="62400",
-            ),
+            ).model_dump(),
         ],
     }
     monkeypatch.setattr(
@@ -103,12 +103,34 @@ def test_osm_import_creates_hierarchy_and_atomically_activates_new_run(
 def test_osm_import_rejects_a_source_without_a_city() -> None:
     source = {
         "type": "FeatureCollection",
-        "features": [feature(name="West", area_type="district", source_id="62401")],
+        "features": [
+            feature(name="West", area_type="district", source_id="62401").model_dump()
+        ],
     }
 
     areas = imports.parse_source(json.dumps(source).encode())
 
     assert all(area.area_type != ServiceArea.AreaType.CITY for area in areas)
+
+
+@pytest.mark.parametrize(
+    "source",
+    [
+        {"type": "FeatureCollection", "features": {}},
+        {
+            "type": "FeatureCollection",
+            "features": [{"type": "Feature", "properties": {}}],
+        },
+    ],
+)
+def test_parse_source_rejects_invalid_geojson_response(
+    source: dict[str, object],
+) -> None:
+    with pytest.raises(
+        imports.OsmImportConfigurationError,
+        match="GeoJSON FeatureCollection",
+    ):
+        imports.parse_source(json.dumps(source).encode())
 
 
 def test_osm_import_supersedes_only_the_active_run_for_its_city(
@@ -133,7 +155,9 @@ def test_osm_import_supersedes_only_the_active_run_for_its_city(
     )
     source = {
         "type": "FeatureCollection",
-        "features": [feature(name="Munich", area_type="city", source_id="62428")],
+        "features": [
+            feature(name="Munich", area_type="city", source_id="62428").model_dump()
+        ],
     }
     monkeypatch.setattr(
         imports,
@@ -213,10 +237,10 @@ def osm_feature(
     coordinates: list[list[float]],
     osm_way_id: str | None = None,
     other_tags: str = '"wikidata"=>"Q123"',
-) -> dict[str, object]:
-    return {
-        "type": "Feature",
-        "properties": {
+) -> GeoJsonFeature:
+    return GeoJsonFeature(
+        type="Feature",
+        properties={
             "osm_id": osm_id,
             "osm_way_id": osm_way_id,
             "name": name,
@@ -224,11 +248,11 @@ def osm_feature(
             "boundary": "administrative",
             "other_tags": other_tags,
         },
-        "geometry": {
+        geometry={
             "type": "Polygon",
             "coordinates": [coordinates],
         },
-    }
+    )
 
 
 def square(
@@ -265,7 +289,7 @@ def test_extract_city_hierarchy_uses_configured_levels_and_assigns_parents(
         where: str,
         *,
         spatial_filter: tuple[float, float, float, float] | None = None,
-    ) -> list[dict[str, object]]:
+    ) -> list[GeoJsonFeature]:
         if "admin_level" in where:
             assert spatial_filter == (0.0, 0.0, 10.0, 10.0)
         if "osm_id = '62400'" in where:
@@ -306,7 +330,7 @@ def test_extract_city_hierarchy_uses_configured_levels_and_assigns_parents(
 
     monkeypatch.setattr(imports, "run_ogr_geojson", fake_run_ogr_geojson)
 
-    source = imports.extract_city_hierarchy_geojson(city, "hessen.osm.pbf")
+    source = imports.extract_city_hierarchy_geojson(city, Path("hessen.osm.pbf"))
     areas = imports.parse_source(source)
 
     assert [(area.name, area.area_type) for area in areas] == [
@@ -340,7 +364,7 @@ def test_extract_city_hierarchy_requires_one_district_parent_for_neighborhoods(
         where: str,
         *,
         spatial_filter: tuple[float, float, float, float] | None = None,
-    ) -> list[dict[str, object]]:
+    ) -> list[GeoJsonFeature]:
         if "admin_level" in where:
             assert spatial_filter == (0.0, 0.0, 10.0, 10.0)
         if "osm_id = '62400'" in where:
@@ -384,7 +408,7 @@ def test_extract_city_hierarchy_requires_one_district_parent_for_neighborhoods(
         imports.OsmImportConfigurationError,
         match="Each neighborhood must have at most one district parent",
     ):
-        imports.extract_city_hierarchy_geojson(city, "hessen.osm.pbf")
+        imports.extract_city_hierarchy_geojson(city, Path("hessen.osm.pbf"))
 
 
 def test_supported_cities_have_stable_relation_and_hierarchy_configuration() -> None:
@@ -402,9 +426,9 @@ def test_supported_cities_have_stable_relation_and_hierarchy_configuration() -> 
     }
 
     assert {
-        city.slug: city.osm_relation_id for city in SUPPORTED_CITIES
+        city.slug: city.osm_relation_id for city in SUPPORTED_CITIES.cities
     } == expected_relation_ids
-    for city in SUPPORTED_CITIES:
+    for city in SUPPORTED_CITIES.cities:
         assert city.city_admin_level == (4 if city.slug in {"berlin", "hamburg"} else 6)
         assert city.district_admin_levels == (9,)
         assert city.neighborhood_admin_levels == (10,)
@@ -413,14 +437,14 @@ def test_supported_cities_have_stable_relation_and_hierarchy_configuration() -> 
 def test_extract_city_uses_relation_id_despite_localized_osm_name(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    city = next(city for city in SUPPORTED_CITIES if city.slug == "munich")
+    city = next(city for city in SUPPORTED_CITIES.cities if city.slug == "munich")
 
     def fake_run_ogr_geojson(
         _pbf_path: object,
         where: str,
         *,
         spatial_filter: tuple[float, float, float, float] | None = None,
-    ) -> list[dict[str, object]]:
+    ) -> list[GeoJsonFeature]:
         assert spatial_filter is None
         assert "osm_id = '62428'" in where
         return [
@@ -434,7 +458,9 @@ def test_extract_city_uses_relation_id_despite_localized_osm_name(
 
     monkeypatch.setattr(imports, "run_ogr_geojson", fake_run_ogr_geojson)
 
-    areas = imports.parse_source(imports.extract_city_geojson(city, "bayern.osm.pbf"))
+    areas = imports.parse_source(
+        imports.extract_city_geojson(city, Path("bayern.osm.pbf"))
+    )
 
     assert areas[0].name == "München"
     assert areas[0].source_id == "62428"
@@ -453,7 +479,7 @@ def test_normalize_osm_feature_resolves_boundary_names(
     other_tags: str,
     expected_name: str,
 ) -> None:
-    city = next(city for city in SUPPORTED_CITIES if city.slug == "munich")
+    city = next(city for city in SUPPORTED_CITIES.cities if city.slug == "munich")
     normalized = imports.normalize_osm_feature(
         city,
         osm_feature(
@@ -470,7 +496,7 @@ def test_normalize_osm_feature_resolves_boundary_names(
 
 
 def test_normalize_osm_feature_rejects_boundary_without_a_usable_name() -> None:
-    city = next(city for city in SUPPORTED_CITIES if city.slug == "munich")
+    city = next(city for city in SUPPORTED_CITIES.cities if city.slug == "munich")
 
     with pytest.raises(imports.OsmImportConfigurationError, match="name or reference"):
         imports.normalize_osm_feature(
@@ -488,14 +514,14 @@ def test_normalize_osm_feature_rejects_boundary_without_a_usable_name() -> None:
 def test_extract_city_hierarchy_assigns_unmatched_neighborhood_to_city(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    city = next(city for city in SUPPORTED_CITIES if city.slug == "munich")
+    city = next(city for city in SUPPORTED_CITIES.cities if city.slug == "munich")
 
     def fake_run_ogr_geojson(
         _pbf_path: object,
         where: str,
         *,
         spatial_filter: tuple[float, float, float, float] | None = None,
-    ) -> list[dict[str, object]]:
+    ) -> list[GeoJsonFeature]:
         if "osm_id = '62428'" in where:
             return [
                 osm_feature(
@@ -519,7 +545,7 @@ def test_extract_city_hierarchy_assigns_unmatched_neighborhood_to_city(
     monkeypatch.setattr(imports, "run_ogr_geojson", fake_run_ogr_geojson)
 
     areas = imports.parse_source(
-        imports.extract_city_hierarchy_geojson(city, "bayern.osm.pbf")
+        imports.extract_city_hierarchy_geojson(city, Path("bayern.osm.pbf"))
     )
 
     assert areas[1].area_type == ServiceArea.AreaType.NEIGHBORHOOD

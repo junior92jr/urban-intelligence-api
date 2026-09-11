@@ -1,5 +1,6 @@
 from datetime import date
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict
 
@@ -31,3 +32,18 @@ class MaterializedOsmSource(BaseModel):
 
     source: ArchivedOsmSource
     path: Path
+
+
+class GeoJsonFeature(BaseModel):
+    """A GeoJSON feature emitted by GDAL or supplied for a legacy import."""
+
+    type: Literal["Feature"]
+    properties: dict[str, object]
+    geometry: dict[str, object]
+
+
+class GeoJsonFeatureCollection(BaseModel):
+    """The GeoJSON document shape accepted by the OSM importer."""
+
+    type: Literal["FeatureCollection"]
+    features: list[GeoJsonFeature]
