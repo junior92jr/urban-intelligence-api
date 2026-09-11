@@ -41,8 +41,8 @@ check:
 	uv lock --check
 	uv run ruff format --check
 	uv run ruff check
-	$(DOCKER) run --rm web pyright
-	$(DOCKER) run --rm web mypy --pretty .
+	$(DOCKER) run --rm --no-deps web pyright
+	$(DOCKER) run --rm --no-deps web mypy --pretty .
 
 test:
 	$(DOCKER) run --rm web pytest -v \
