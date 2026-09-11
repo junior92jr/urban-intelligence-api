@@ -26,9 +26,12 @@ class ServiceAreaViewSet(
 
     @override
     def get_queryset(self) -> QuerySet[ServiceArea]:
-        queryset = ServiceArea.objects.select_related("country").filter(
-            is_active=True,
-            country__is_active=True,
+        queryset = (
+            ServiceArea.objects.active()
+            .select_related("country")
+            .filter(
+                country__is_active=True,
+            )
         )
         country_code = self.request.query_params.get("country")
         if country_code:

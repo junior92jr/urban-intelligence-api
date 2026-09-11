@@ -23,6 +23,7 @@
 
         <nav class="import-tabs" aria-label="Import type">
           <a class="import-tab {% if import_type == 'places' %}import-tab--active{% endif %}" href="{% url 'web:data_imports' %}?type=places">Place data</a>
+          <a class="import-tab {% if import_type == 'geography' %}import-tab--active{% endif %}" href="{% url 'web:data_imports' %}?type=geography">Geography</a>
           <a class="import-tab {% if import_type == 'intelligence' %}import-tab--active{% endif %}" href="{% url 'web:data_imports' %}?type=intelligence">Area intelligence</a>
         </nav>
 
@@ -32,9 +33,12 @@
               {% if import_type == 'places' %}
                 <p class="eyebrow">OpenStreetMap</p>
                 <h2>Start place import</h2>
-              {% else %}
+              {% elif import_type == 'intelligence' %}
                 <p class="eyebrow">Area intelligence</p>
                 <h2>Start dataset import</h2>
+              {% else %}
+                <p class="eyebrow">OpenStreetMap</p>
+                <h2>Import administrative boundaries</h2>
               {% endif %}
             </div>
           </div>
@@ -65,6 +69,25 @@
 
               <div class="settings-actions">
                 <button class="primary-button" type="submit">Start import</button>
+                <a class="secondary-button" href="{% url 'web:map' %}">Back to map</a>
+              </div>
+            </form>
+          {% elif import_type == 'geography' %}
+            <form class="profile-form" method="post">
+              {% csrf_token %}
+              <input type="hidden" name="import_type" value="geography">
+              {{ osm_import_run_form.non_field_errors }}
+
+              <label class="field">
+                <span>Supported city</span>
+                {{ osm_import_run_form.city_slug }}
+                {{ osm_import_run_form.city_slug.errors }}
+              </label>
+
+              <p class="field-help">The latest regional Geofabrik PBF is fetched and archived automatically. Imports requested on the same day reuse the archived regional source.</p>
+
+              <div class="settings-actions">
+                <button class="primary-button" type="submit">Start geography import</button>
                 <a class="secondary-button" href="{% url 'web:map' %}">Back to map</a>
               </div>
             </form>
@@ -100,7 +123,7 @@
           <div class="settings-section-header">
             <div>
               <p class="eyebrow">Import history</p>
-              <h2>Recent {% if import_type == 'places' %}place{% else %}intelligence{% endif %} imports</h2>
+              <h2>Recent {% if import_type == 'places' %}place{% elif import_type == 'geography' %}geography{% else %}intelligence{% endif %} imports</h2>
             </div>
           </div>
 
@@ -124,7 +147,7 @@
             {% empty %}
               <li class="import-item import-item--empty">No imports started yet.</li>
             {% endfor %}
-            {% else %}
+            {% elif import_type == 'intelligence' %}
               {% for intelligence_import in intelligence_imports %}
                 <li class="import-item">
                   <div>
@@ -139,6 +162,23 @@
                   {% if intelligence_import.error_message %}
                     <p>{{ intelligence_import.error_message }}</p>
                   {% endif %}
+                </li>
+              {% empty %}
+              <li class="import-item import-item--empty">No imports started yet.</li>
+              {% endfor %}
+            {% else %}
+              {% for osm_import_run in osm_import_runs %}
+                <li class="import-item">
+                  <div>
+                    <strong>{{ osm_import_run.source_object_key }}</strong>
+                    <span>{{ osm_import_run.processed_cities }} of {{ osm_import_run.total_cities }} administrative areas</span>
+                  </div>
+                  <div class="import-meta">
+                    <span class="status-pill status-pill--{{ osm_import_run.status }}">{{ osm_import_run.get_status_display }}</span>
+                    {% if osm_import_run.is_active %}<span>Active dataset</span>{% endif %}
+                    <span>{{ osm_import_run.created_at|date:"M j, H:i" }}</span>
+                  </div>
+                  {% if osm_import_run.error_summary %}<p>{{ osm_import_run.error_summary }}</p>{% endif %}
                 </li>
               {% empty %}
                 <li class="import-item import-item--empty">No imports started yet.</li>

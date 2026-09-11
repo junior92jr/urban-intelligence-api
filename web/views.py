@@ -16,6 +16,9 @@ from django.views.generic import FormView, TemplateView
 
 from accounts.models import User, UserProfile
 from accounts.services.registration import activate_account
+from geo.models import OsmImportRun
+from geo.services.osm.source import archived_object_key, get_supported_city
+from geo.tasks import run_osm_import
 from intelligence.models import IntelligenceDataset, IntelligenceImport
 from intelligence.tasks import run_intelligence_import
 from places.models import PlaceImport
@@ -27,6 +30,7 @@ from web.forms import (
     ForgotPasswordForm,
     IntelligenceImportForm,
     LocationPreferencesForm,
+    OsmImportRunForm,
     PlaceImportForm,
     RegistrationForm,
     ResetPasswordForm,
@@ -323,6 +327,10 @@ class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             "intelligence_import_form",
             IntelligenceImportForm(),
         )
+        context["osm_import_run_form"] = kwargs.get(
+            "osm_import_run_form",
+            OsmImportRunForm(),
+        )
         context["has_intelligence_datasets"] = IntelligenceDataset.objects.filter(
             is_active=True,
             source__is_active=True,
@@ -341,10 +349,19 @@ class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             "service_area__country",
             "requested_by",
         )[:20]
+        context["osm_import_runs"] = OsmImportRun.objects.all()[:20]
 
         return context
 
     def post(self, request: HttpRequest, *args: Any, **kwargs: Any) -> HttpResponse:
+        if self.get_import_type() == "geography":
+            osm_import_run_form = OsmImportRunForm(request.POST)
+            if osm_import_run_form.is_valid():
+                return self.create_osm_import(osm_import_run_form)
+
+            return self.render_to_response(
+                self.get_context_data(osm_import_run_form=osm_import_run_form)
+            )
         if self.get_import_type() == "intelligence":
             intelligence_import_form = IntelligenceImportForm(request.POST)
             if intelligence_import_form.is_valid():
@@ -369,7 +386,23 @@ class DataImportsView(LoginRequiredMixin, UserPassesTestMixin, TemplateView):
             "import_type",
             self.request.GET.get("type", "places"),
         )
-        return import_type if import_type in {"places", "intelligence"} else "places"
+        return (
+            import_type
+            if import_type in {"places", "intelligence", "geography"}
+            else "places"
+        )
+
+    def create_osm_import(self, form: OsmImportRunForm) -> HttpResponse:
+        city = get_supported_city(cast(str, form.cleaned_data["city_slug"]))
+        osm_import_run = OsmImportRun.objects.create(
+            city_slug=city.slug,
+            source_object_key=archived_object_key(city),
+        )
+        assert osm_import_run.pk is not None
+        cast(Any, run_osm_import).delay(osm_import_run.pk)
+        messages.success(self.request, "OSM administrative-boundary import started.")
+
+        return redirect(f"{self.success_url}?type=geography")
 
     def create_place_import(self, form: PlaceImportForm) -> HttpResponse:
         place_import = form.save(commit=False)

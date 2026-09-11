@@ -14,6 +14,7 @@ from accounts.services.registration import (
     reset_password,
 )
 from geo.models import ServiceArea, build_point
+from geo.services.osm.source import SUPPORTED_CITIES
 from intelligence.models import IntelligenceDataset, IntelligenceImport
 from places.models import PlaceImport
 
@@ -124,11 +125,13 @@ class LocationPreferencesForm(forms.Form):
             "forms.ModelChoiceField[ServiceArea]",
             self.fields["service_area"],
         )
-        service_area_field.queryset = ServiceArea.objects.select_related(
-            "country"
-        ).filter(
-            is_active=True,
-            country__is_active=True,
+        service_area_field.queryset = (
+            ServiceArea.objects.active()
+            .cities()
+            .select_related("country")
+            .filter(
+                country__is_active=True,
+            )
         )
 
     def initial_data(self) -> dict[str, object]:
@@ -203,11 +206,15 @@ class PlaceImportForm(forms.ModelForm):  # type: ignore[type-arg]
             "forms.ModelChoiceField[ServiceArea]",
             self.fields["service_area"],
         )
-        service_area_field.queryset = ServiceArea.objects.select_related(
-            "country",
-        ).filter(
-            is_active=True,
-            country__is_active=True,
+        service_area_field.queryset = (
+            ServiceArea.objects.active()
+            .cities()
+            .select_related(
+                "country",
+            )
+            .filter(
+                country__is_active=True,
+            )
         )
 
     @override
@@ -243,11 +250,15 @@ class IntelligenceImportForm(forms.ModelForm):  # type: ignore[type-arg]
             "forms.ModelChoiceField[ServiceArea]",
             self.fields["service_area"],
         )
-        service_area_field.queryset = ServiceArea.objects.select_related(
-            "country",
-        ).filter(
-            is_active=True,
-            country__is_active=True,
+        service_area_field.queryset = (
+            ServiceArea.objects.active()
+            .cities()
+            .select_related(
+                "country",
+            )
+            .filter(
+                country__is_active=True,
+            )
         )
 
     @override
@@ -293,6 +304,13 @@ class IntelligenceImportForm(forms.ModelForm):  # type: ignore[type-arg]
             )
 
         return cleaned_data
+
+
+class OsmImportRunForm(forms.Form):
+    city_slug = forms.ChoiceField(
+        choices=[(city.slug, city.name) for city in SUPPORTED_CITIES],
+        label="Supported city",
+    )
 
 
 def add_form_error(form: forms.Form, error: ValidationError) -> None:

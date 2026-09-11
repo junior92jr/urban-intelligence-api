@@ -12,7 +12,8 @@ from rest_framework.test import APIClient
 
 from accounts.models import User, UserProfile
 from accounts.services.registration import register_user
-from geo.models import ServiceArea
+from geo.models import OsmImportRun, ServiceArea
+from geo.tasks import run_osm_import
 from intelligence.models import (
     IntelligenceDataset,
     IntelligenceImport,
@@ -61,6 +62,7 @@ def test_map_page_renders_search_sidebar_for_authenticated_user(
     response = api_client.get(reverse("web:map"))
 
     assert response.status_code == status.HTTP_200_OK
+    assert response["Referrer-Policy"] == "strict-origin-when-cross-origin"
     assert b'id="map"' in response.content
     assert b"data-tile-url=" in response.content
     assert b"data-tile-attribution=" in response.content
@@ -589,6 +591,32 @@ def test_data_imports_page_starts_open_street_map_import(
     assert place_import.requested_by == user
 
 
+def test_data_imports_page_starts_osm_geography_import(api_client: APIClient) -> None:
+    user = User.objects.create_user(
+        email="geography-imports-submit-web@example.com",
+        password="N3arby-Places-Key-842!",
+        is_active=True,
+        is_staff=True,
+    )
+    api_client.force_login(user)
+    mocker(run_osm_import).mock("delay").called_once()
+
+    response = api_client.post(
+        reverse("web:data_imports"),
+        {
+            "import_type": "geography",
+            "city_slug": "frankfurt-am-main",
+        },
+    )
+    osm_import_run = OsmImportRun.objects.get()
+
+    assert response.status_code == status.HTTP_302_FOUND
+    assert response["Location"] == f"{reverse('web:data_imports')}?type=geography"
+    assert osm_import_run.status == OsmImportRun.Status.PENDING
+    assert osm_import_run.city_slug == "frankfurt-am-main"
+    assert "/hessen/" in osm_import_run.source_object_key
+
+
 def test_data_imports_page_shows_configured_intelligence_dataset(
     api_client: APIClient,
 ) -> None:
@@ -707,6 +735,7 @@ def test_map_app_reads_tile_url_from_template_dataset() -> None:
 
     assert "shell.dataset.tileUrl" in app_js
     assert "tile.openstreetmap.org" not in app_js
+    assert 'referrerPolicy: "strict-origin-when-cross-origin"' in app_js
 
 
 def test_map_app_supports_the_copernicus_tree_cover_layer() -> None:
